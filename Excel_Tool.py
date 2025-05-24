@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import subprocess
+import platform
 from datetime import datetime
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import PatternFill, Font, Alignment
@@ -57,6 +59,64 @@ def show_confirm_dialog(title, message):
     
     dialog.wait_window()
     return result.get()
+
+def open_and_highlight_file(file_path):
+    """跨平台打开文件所在目录并高亮显示文件"""
+    try:
+        # 确保文件路径是绝对路径
+        abs_file_path = os.path.abspath(file_path)
+        
+        # 根据操作系统使用不同的命令
+        system = platform.system()
+        if system == "Windows":
+            # Windows: 使用explorer /select命令高亮显示文件
+            subprocess.run(["explorer", "/select,", abs_file_path])
+        elif system == "Darwin":  # macOS
+            # macOS: 使用open -R命令在Finder中高亮显示文件
+            subprocess.run(["open", "-R", abs_file_path])
+        elif system == "Linux":
+            # Linux: 尝试多种文件管理器的高亮显示命令
+            # 首先尝试使用dbus-send (适用于大多数现代Linux发行版)
+            try:
+                subprocess.run([
+                    "dbus-send", 
+                    "--session", 
+                    "--dest=org.freedesktop.FileManager1", 
+                    "--type=method_call", 
+                    "/org/freedesktop/FileManager1", 
+                    "org.freedesktop.FileManager1.ShowItems", 
+                    f"array:string:file://{abs_file_path}", 
+                    "string:"
+                ], check=True)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                # 如果dbus方法失败，尝试其他文件管理器
+                file_managers = ["nautilus", "dolphin", "thunar", "pcmanfm", "nemo"]
+                directory = os.path.dirname(abs_file_path)
+                for fm in file_managers:
+                    try:
+                        if fm == "nautilus":
+                            subprocess.run([fm, "--select", abs_file_path], check=True)
+                        elif fm == "dolphin":
+                            subprocess.run([fm, "--select", abs_file_path], check=True)
+                        else:
+                            # 对于不支持select的文件管理器，只打开目录
+                            subprocess.run([fm, directory], check=True)
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+                else:
+                    # 如果所有文件管理器都失败，使用xdg-open打开目录
+                    subprocess.run(["xdg-open", directory])
+        else:
+            # 备用方法，使用webbrowser打开目录
+            import webbrowser
+            directory = os.path.dirname(abs_file_path)
+            webbrowser.open(f"file://{directory}")
+        
+        return True
+    except Exception as e:
+        print(f"打开并高亮显示文件失败: {str(e)}")
+        return False
 
 class ImprovedExcelCompareEngine:
     """改进版Excel对比引擎"""
@@ -343,7 +403,7 @@ class ImprovedExcelCompareEngine:
         
         # 生成结果文件
         if not all_difference_records:
-            return True, "对比完成！未发现任何差异。"
+            return True, "对比完成！未发现任何差异。", None
         
         return self._save_difference_results(all_difference_records, output_dir, total_differences, progress_callback)
     
@@ -395,7 +455,7 @@ class ImprovedExcelCompareEngine:
             
             # 确定最终输出的列顺序：关键列 + 实际选中的数据列 + 差异列 + 数据来源
             if not sorted_records:
-                return True, "对比完成！未发现任何差异。"
+                return True, "对比完成！未发现任何差异。", None
             
             # 从第一条记录中获取所有列名，然后过滤
             all_columns_in_records = list(sorted_records[0].keys())
@@ -511,10 +571,10 @@ class ImprovedExcelCompareEngine:
 - 数据来源: 包含文件名和工作表名称
 - 文件命名: 差异报告_日期_序号格式"""
             
-            return True, result_message
+            return True, result_message, output_path
             
         except Exception as e:
-            return False, f"保存差异报告失败: {str(e)}"
+            return False, f"保存差异报告失败: {str(e)}", None
 
 
 class ImprovedExcelCompareGUI:
@@ -871,18 +931,18 @@ class ImprovedExcelCompareGUI:
         
         def compare_thread():
             try:
-                success, message = self.engine.compare_tables(
+                success, message, output_path = self.engine.compare_tables(
                     self.compare_files,
                     self.output_dir_var.get(),
                     progress_callback
                 )
-                self.root.after(0, lambda: self.compare_complete(success, message))
+                self.root.after(0, lambda: self.compare_complete(success, message, output_path))
             except Exception as e:
-                self.root.after(0, lambda: self.compare_complete(False, f"对比过程异常: {str(e)}"))
+                self.root.after(0, lambda: self.compare_complete(False, f"对比过程异常: {str(e)}", None))
         
         threading.Thread(target=compare_thread, daemon=True).start()
     
-    def compare_complete(self, success, message):
+    def compare_complete(self, success, message, output_path):
         """对比完成回调"""
         self.compare_button.config(state="normal")
         
@@ -890,10 +950,21 @@ class ImprovedExcelCompareGUI:
             self.log(f"✓ {message}")
             self.update_status("表格对比完成")
             messagebox.showinfo("成功", message)
+            
+            # 如果生成了差异报告文件，自动打开保存目录
+            if output_path and os.path.exists(output_path):
+                self.log("正在打开差异报告保存目录并高亮显示文件...")
+                if open_and_highlight_file(output_path):
+                    self.log("✓ 已自动打开差异报告保存目录并高亮显示差异报告文件")
+                else:
+                    self.log("✗ 打开目录或高亮显示文件失败，请手动查看文件")
+            
+            return output_path
         else:
             self.log(f"✗ {message}")
             self.update_status("表格对比失败")
             messagebox.showerror("错误", message)
+            return None
     
     def open_column_selection_window(self):
         """打开列选择弹出窗口"""
