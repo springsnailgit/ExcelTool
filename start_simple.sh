@@ -45,12 +45,8 @@ echo "🚀 启动简化自适应版..."
 echo "💡 使用提示：直接拖拽窗口边框测试自适应效果"
 echo ""
 
-# 启动简化版程序
-if [ -f "Excel_Tool_简化版.py" ]; then
-    $PYTHON_CMD Excel_Tool_简化版.py
-else
-    $PYTHON_CMD Excel_Tool.py
-fi
+# 启动主程序
+$PYTHON_CMD Excel_Tool.py
 
 echo ""
 echo "程序已退出" 
