@@ -25,9 +25,15 @@ def show_confirm_dialog(title, message):
     dialog = tk.Toplevel()
     dialog.title(title)
     dialog.geometry("400x150")
-    dialog.resizable(False, False)
+    dialog.resizable(True, True)  # 允许调整大小
+    dialog.minsize(300, 120)  # 设置最小尺寸
     dialog.transient()
     dialog.grab_set()
+    
+    # 配置对话框的自适应
+    dialog.columnconfigure(0, weight=1)
+    dialog.rowconfigure(0, weight=1)
+    dialog.rowconfigure(1, weight=0)
     
     # 居中显示
     dialog.update_idletasks()
@@ -40,11 +46,11 @@ def show_confirm_dialog(title, message):
     
     # 消息文本
     msg_label = ttk.Label(dialog, text=message, font=("Arial", 10), wraplength=350)
-    msg_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20)
+    msg_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20, sticky=(tk.W, tk.E, tk.N, tk.S))
     
     # 按钮框架
     button_frame = ttk.Frame(dialog)
-    button_frame.grid(row=1, column=0, columnspan=2, pady=10)
+    button_frame.grid(row=1, column=0, columnspan=2, pady=10, sticky=(tk.W, tk.E))
     
     def on_yes():
         result.set(True)
@@ -589,8 +595,11 @@ class ImprovedExcelCompareGUI:
         
     def setup_ui(self):
         """设置用户界面"""
-        self.root.title("Excel表格对比工具 - 改进版 v4.1")
+        self.root.title("Excel表格对比工具 - 改进版 v4.1.1")
         self.root.geometry("1100x850")  # 调整窗口大小以适应新布局
+        
+        # 设置最小窗口大小，确保界面不会过小
+        self.root.minsize(900, 700)
         
         # 设置主题
         style = ttk.Style()
@@ -603,13 +612,16 @@ class ImprovedExcelCompareGUI:
         main_frame = ttk.Frame(self.root, padding="15")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
+        # 配置根窗口的自适应
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
+        
+        # 配置主框架的自适应 - 每列都有相等权重，可以灵活调整
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         
         # 标题
-        title_label = ttk.Label(main_frame, text="Excel表格对比工具 - 改进版 v4.1", 
+        title_label = ttk.Label(main_frame, text="Excel表格对比工具 - 改进版 v4.1.1", 
                                font=("Arial", 16, "bold"))
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
@@ -691,13 +703,18 @@ class ImprovedExcelCompareGUI:
         settings_frame = ttk.LabelFrame(main_frame, text="4. 比对设置", padding="10")
         settings_frame.grid(row=3, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 15))
         settings_frame.columnconfigure(0, weight=1)
-        settings_frame.rowconfigure(0, weight=1)
-        settings_frame.rowconfigure(1, weight=1)
+        # 优化权重分配：两个子模块都参与伸缩，但输出目录有最小高度保护
+        settings_frame.rowconfigure(0, weight=2)  # 比对列选择区域，权重较大
+        settings_frame.rowconfigure(1, weight=1, minsize=80)  # 输出目录区域，权重较小但有最小高度保护
         
         # 上部：比对列选择
         exclude_frame = ttk.LabelFrame(settings_frame, text="比对列选择", padding="8")
         exclude_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         exclude_frame.columnconfigure(0, weight=1)
+        # 优化内部元素布局：让状态信息能够更好地适应空间变化
+        exclude_frame.rowconfigure(0, weight=0)  # 说明文字，固定高度
+        exclude_frame.rowconfigure(1, weight=0)  # 按钮，固定高度  
+        exclude_frame.rowconfigure(2, weight=1)  # 状态信息，充分利用可用空间
         
         ttk.Label(exclude_frame, text="选择哪些列参与对比（关键列为必选项）：", 
                  font=("Arial", 9), foreground="darkblue").grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
@@ -710,12 +727,15 @@ class ImprovedExcelCompareGUI:
         # 状态信息
         self.exclude_info = tk.StringVar(value="当前无选中列 - 请先选择主表格和待对比文件")
         ttk.Label(exclude_frame, textvariable=self.exclude_info, 
-                 foreground="darkorange", font=("Arial", 9), wraplength=200).grid(row=2, column=0, sticky=tk.W)
+                 foreground="darkorange", font=("Arial", 9), wraplength=200).grid(row=2, column=0, sticky=(tk.W, tk.N), pady=(0, 8))
         
         # 下部：输出目录选择
         output_frame = ttk.LabelFrame(settings_frame, text="输出目录", padding="8")
         output_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         output_frame.columnconfigure(0, weight=1)
+        # 输出目录区域内部布局：确保控件在任何大小下都可见可操作
+        output_frame.rowconfigure(0, weight=0)  # 说明文字，固定高度
+        output_frame.rowconfigure(1, weight=1)  # 输入控件区域，可适应调整但保持可用性
         
         ttk.Label(output_frame, text="选择差异报告的保存位置：", 
                  font=("Arial", 9), foreground="darkblue").grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
@@ -783,12 +803,19 @@ class ImprovedExcelCompareGUI:
                               relief=tk.SUNKEN, anchor=tk.W, font=("Arial", 9))
         status_bar.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        # 设置行列权重 - 重新分配权重以确保各区域有合适空间
-        main_frame.rowconfigure(3, weight=2)  # 待对比文件和比对设置区域，给予更多权重
-        main_frame.rowconfigure(6, weight=1)  # 日志区域
+        # 完善自适应配置 - 设置行列权重以确保各区域能够自适应调整
+        # 行权重配置：让需要伸缩的区域有合适的权重
+        main_frame.rowconfigure(0, weight=0)  # 标题行，固定高度
+        main_frame.rowconfigure(1, weight=0)  # 功能说明行，固定高度
+        main_frame.rowconfigure(2, weight=0)  # 主表格和关键列选择行，最小高度
+        main_frame.rowconfigure(3, weight=3)  # 文件列表和设置区域，主要伸缩区域，给予最大权重
+        main_frame.rowconfigure(4, weight=0)  # 执行对比按钮行，固定高度
+        main_frame.rowconfigure(5, weight=0)  # 日志标题行，固定高度
+        main_frame.rowconfigure(6, weight=2)  # 日志区域，次要伸缩区域
+        main_frame.rowconfigure(7, weight=0)  # 状态栏，固定高度
         
         # 初始化日志
-        self.log("Excel表格对比工具 - 改进版 v4.1 已启动")
+        self.log("Excel表格对比工具 - 改进版 v4.1.1 已启动")
         self.log("新功能：比对列选择，弹出窗口智能选择，关键列必选机制")
         self.log("新特性：差异报告自动序号命名，只对比选中的列")
         self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
@@ -1005,6 +1032,9 @@ class ImprovedExcelCompareGUI:
         self.column_window.geometry("500x400")
         self.column_window.resizable(True, True)
         
+        # 设置弹出窗口的最小大小
+        self.column_window.minsize(400, 300)
+        
         # 设置窗口居中
         self.column_window.transient(self.root)
         self.column_window.grab_set()
@@ -1012,10 +1042,17 @@ class ImprovedExcelCompareGUI:
         # 主框架
         main_frame = ttk.Frame(self.column_window, padding="15")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # 配置弹出窗口的自适应
         self.column_window.columnconfigure(0, weight=1)
         self.column_window.rowconfigure(0, weight=1)
+        
+        # 配置主框架的自适应
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(1, weight=1)
+        main_frame.rowconfigure(0, weight=0)  # 标题行，固定高度
+        main_frame.rowconfigure(1, weight=0)  # 说明行，固定高度
+        main_frame.rowconfigure(2, weight=1)  # 列选择区域，主要伸缩区域
+        main_frame.rowconfigure(3, weight=0)  # 按钮行，固定高度
         
         # 标题
         title_label = ttk.Label(main_frame, text="选择参与对比的列", 
@@ -1175,7 +1212,7 @@ class ImprovedExcelCompareGUI:
         self.log_text.delete(1.0, tk.END)
         
         # 重新初始化日志
-        self.log("Excel表格对比工具 - 改进版 v4.1 已重置")
+        self.log("Excel表格对比工具 - 改进版 v4.1.1 已重置")
         self.log("新功能：比对列选择，弹出窗口智能选择，关键列必选机制")
         self.log("新特性：差异报告自动序号命名，只对比选中的列")
         self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
@@ -1195,6 +1232,16 @@ def main():
         root.iconname("Excel Compare")
     except:
         pass
+    
+    # 添加窗口大小变化的回调，用于优化自适应显示
+    def on_window_resize(event):
+        """窗口大小变化时的回调函数"""
+        if event.widget == root:
+            # 当窗口大小变化时，确保界面元素正确更新
+            root.update_idletasks()
+    
+    # 绑定窗口大小变化事件
+    root.bind('<Configure>', on_window_resize)
     
     # 居中显示窗口
     root.update_idletasks()

@@ -53,10 +53,17 @@ test_*.py
 debug_*.py
 *_test.py
 *_debug.py
+验证*.py
+start_adaptive.sh
 
 # Output files
 差异报告_*.xlsx
 合并结果_*.xlsx
 结果/
 输出/
-测试*/ 用友T+ 存货编码-公用版/
+测试*/
+用友T+ 存货编码-公用版/
+比对结果/
+
+# Log files
+*.log
