@@ -1247,7 +1247,7 @@ class ImprovedExcelCompareGUI:
         
     def setup_ui(self):
         """设置用户界面"""
-        self.root.title("Excel小工具 v4.1.1")
+        self.root.title("Excel小工具 v4.2")
         self.root.geometry("1100x850")  # 调整窗口大小以适应新布局
         
         # 设置最小窗口大小，确保界面不会过小
@@ -1274,7 +1274,7 @@ class ImprovedExcelCompareGUI:
         main_frame.rowconfigure(1, weight=1)  # 标签页区域
         
         # 标题
-        title_label = ttk.Label(main_frame, text="Excel小工具 v4.1.1", 
+        title_label = ttk.Label(main_frame, text="Excel小工具 v4.2", 
                                font=("Arial", 18, "bold"))
         title_label.grid(row=0, column=0, pady=(0, 15))
         
@@ -1486,7 +1486,7 @@ class ImprovedExcelCompareGUI:
         compare_frame.rowconfigure(6, weight=0)  # 状态栏，固定高度
         
         # 初始化日志
-        self.log("Excel小工具 v4.1.1 已启动")
+        self.log("Excel小工具 v4.2 已启动")
         self.log("新功能：标签页界面，支持多种Excel处理工具")
         self.log("对比工具：比对列选择，弹出窗口智能选择，关键列必选机制")
         self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
@@ -1632,48 +1632,23 @@ class ImprovedExcelCompareGUI:
         dialog_frame = ttk.LabelFrame(analysis_frame, text="4. DeepSeek对话分析", padding="10")
         dialog_frame.grid(row=2, column=2, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0), pady=(0, 15))
         dialog_frame.columnconfigure(0, weight=1)
-        dialog_frame.rowconfigure(2, weight=1)
-        
-        # API配置状态显示
-        api_status_frame = ttk.Frame(dialog_frame)
-        api_status_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        api_status_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(api_status_frame, text="API状态:", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky=tk.W)
-        
-        # 显示API配置状态
-        if ENV_CONFIG['api_key']:
-            status_text = f"✅ 已配置 (Key: {ENV_CONFIG['api_key'][:10]}...)"
-            status_color = "darkgreen"
-        else:
-            status_text = "❌ 未配置API Key"
-            status_color = "red"
-        
-        self.api_status_label = ttk.Label(api_status_frame, text=status_text, font=("Arial", 9), 
-                                        foreground=status_color)
-        self.api_status_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
-        
-        # 添加配置说明
-        config_hint = ttk.Label(dialog_frame, 
-                               text="💡 API Key已从.env文件自动加载，如需修改请编辑.env文件后重启程序", 
-                               font=("Arial", 8), foreground="gray", wraplength=300)
-        config_hint.grid(row=1, column=0, sticky=tk.W, pady=(0, 10))
+        dialog_frame.rowconfigure(1, weight=1)
         
         # 对话区域
-        ttk.Label(dialog_frame, text="快速对话：", font=("Arial", 9)).grid(row=2, column=0, sticky=tk.W, pady=(0, 5))
+        ttk.Label(dialog_frame, text="快速对话：", font=("Arial", 9)).grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
         
         # 对话显示区域
         dialog_display_frame = ttk.Frame(dialog_frame)
-        dialog_display_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        dialog_display_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         dialog_display_frame.columnconfigure(0, weight=1)
         dialog_display_frame.rowconfigure(0, weight=1)
         
-        self.dialog_text = scrolledtext.ScrolledText(dialog_display_frame, height=3, font=("Arial", 9), wrap=tk.WORD)
+        self.dialog_text = scrolledtext.ScrolledText(dialog_display_frame, height=5, font=("Arial", 9), wrap=tk.WORD)
         self.dialog_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # 输入和发送
         input_frame = ttk.Frame(dialog_frame)
-        input_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        input_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         input_frame.columnconfigure(0, weight=1)
         
         self.dialog_input_var = tk.StringVar()
@@ -1686,12 +1661,12 @@ class ImprovedExcelCompareGUI:
         # 高级对话按钮
         ttk.Button(dialog_frame, text="打开高级对话窗口", 
                   command=self.open_advanced_chat, 
-                  style="Accent.TButton").grid(row=5, column=0, pady=(10, 0))
+                  style="Accent.TButton").grid(row=3, column=0, pady=(10, 0))
         
         # 输出目录
-        ttk.Label(dialog_frame, text="输出目录：", font=("Arial", 9)).grid(row=6, column=0, sticky=tk.W, pady=(10, 5))
+        ttk.Label(dialog_frame, text="输出目录：", font=("Arial", 9)).grid(row=4, column=0, sticky=tk.W, pady=(10, 5))
         output_controls_frame = ttk.Frame(dialog_frame)
-        output_controls_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        output_controls_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         output_controls_frame.columnconfigure(0, weight=1)
         
         self.analysis_output_var = tk.StringVar()
@@ -2149,7 +2124,7 @@ class ImprovedExcelCompareGUI:
         self.log_text.delete(1.0, tk.END)
         
         # 重新初始化日志
-        self.log("Excel表格对比工具 - 改进版 v4.1.1 已重置")
+        self.log("Excel表格对比工具 - 改进版 v4.2 已重置")
         self.log("新功能：比对列选择，弹出窗口智能选择，关键列必选机制")
         self.log("新特性：差异报告自动序号命名，只对比选中的列")
         self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
