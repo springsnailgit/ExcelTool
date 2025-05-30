@@ -220,8 +220,9 @@ def show_confirm_dialog(title, message):
     """显示中文确认对话框"""
     dialog = tk.Toplevel()
     dialog.title(title)
+    dialog.geometry("400x150")
     dialog.resizable(True, True)  # 允许调整大小
-    dialog.minsize(400, 200)  # 设置最小尺寸
+    dialog.minsize(300, 120)  # 设置最小尺寸
     dialog.transient()
     dialog.grab_set()
     
@@ -230,46 +231,22 @@ def show_confirm_dialog(title, message):
     dialog.rowconfigure(0, weight=1)
     dialog.rowconfigure(1, weight=0)
     
+    # 居中显示
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+    y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+    dialog.geometry(f"400x150+{x}+{y}")
+    
     result = tk.BooleanVar()
     result.set(False)
     
-    # 主框架
-    main_frame = ttk.Frame(dialog, padding="20")
-    main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-    main_frame.columnconfigure(0, weight=1)
-    main_frame.rowconfigure(0, weight=1)
-    main_frame.rowconfigure(1, weight=0)
+    # 消息文本
+    msg_label = ttk.Label(dialog, text=message, font=("Arial", 10), wraplength=350)
+    msg_label.grid(row=0, column=0, columnspan=2, padx=20, pady=20, sticky=(tk.W, tk.E, tk.N, tk.S))
     
-    # 消息文本 - 使用Text组件以更好地显示多行内容
-    text_frame = ttk.Frame(main_frame)
-    text_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 20))
-    text_frame.columnconfigure(0, weight=1)
-    text_frame.rowconfigure(0, weight=1)
-    
-    text_widget = tk.Text(text_frame, wrap=tk.WORD, font=("Arial", 10),
-                         height=6, width=50, relief=tk.FLAT,
-                         background=dialog.cget('bg'), state=tk.DISABLED)
-    text_widget.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-    
-    # 添加滚动条
-    scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
-    scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-    text_widget.configure(yscrollcommand=scrollbar.set)
-    
-    # 插入消息内容
-    text_widget.config(state=tk.NORMAL)
-    text_widget.insert(tk.END, message)
-    text_widget.config(state=tk.DISABLED)
-    
-    # 按钮框架 - 居中对称布局
-    button_frame = ttk.Frame(main_frame)
-    button_frame.grid(row=1, column=0, pady=(10, 0))
-    
-    # 配置按钮框架的列权重以实现居中
-    button_frame.columnconfigure(0, weight=1)
-    button_frame.columnconfigure(1, weight=0)
-    button_frame.columnconfigure(2, weight=0)
-    button_frame.columnconfigure(3, weight=1)
+    # 按钮框架
+    button_frame = ttk.Frame(dialog)
+    button_frame.grid(row=1, column=0, columnspan=2, pady=10, sticky=(tk.W, tk.E))
     
     def on_yes():
         result.set(True)
@@ -279,21 +256,8 @@ def show_confirm_dialog(title, message):
         result.set(False)
         dialog.destroy()
     
-    # 居中对称的按钮布局
-    ttk.Button(button_frame, text="是", command=on_yes, width=8).grid(row=0, column=1, padx=10)
-    ttk.Button(button_frame, text="否", command=on_no, width=8).grid(row=0, column=2, padx=10)
-    
-    # 根据内容调整窗口大小
-    dialog.update_idletasks()
-    
-    # 计算合适的窗口大小
-    req_width = max(500, text_widget.winfo_reqwidth() + 100)
-    req_height = max(250, text_widget.winfo_reqheight() + 120)
-    
-    # 居中显示
-    x = (dialog.winfo_screenwidth() // 2) - (req_width // 2)
-    y = (dialog.winfo_screenheight() // 2) - (req_height // 2)
-    dialog.geometry(f"{req_width}x{req_height}+{x}+{y}")
+    ttk.Button(button_frame, text="是", command=on_yes).grid(row=0, column=0, padx=10)
+    ttk.Button(button_frame, text="否", command=on_no).grid(row=0, column=1, padx=10)
     
     dialog.wait_window()
     return result.get()
@@ -803,7 +767,7 @@ class ChatWindow:
     
     def _clear_chat(self):
         """清空对话"""
-        if show_confirm_dialog("确认", "确定要清空所有对话记录吗？"):
+        if messagebox.askyesno("确认", "确定要清空所有对话记录吗？"):
             self.chat_history.clear()
             self.chat_text.config(state='normal')
             self.chat_text.delete(1.0, tk.END)
@@ -820,16 +784,9 @@ class ImprovedExcelCompareEngine:
         self.main_columns = []
         self.key_column_index = 0  # 用于行匹配的关键列索引
         self.main_file_name = ""
-        self.main_file_path = ""  # 保存主表格文件路径
         self.main_sheet_name = ""  # 保存主表格工作表名称
         self.selected_columns = set()  # 用户选择的参与对比的列
         self.use_smart_match = False  # 是否启用智能列名匹配
-        
-        # 工作表选择相关变量
-        self.main_sheet_names = []
-        self.main_sheet_var = tk.StringVar()
-        self.compare_sheet_names = []
-        self.compare_sheet_var = tk.StringVar()
         
     def reset(self):
         """重置引擎状态到初始状态"""
@@ -837,7 +794,6 @@ class ImprovedExcelCompareEngine:
         self.main_columns = []
         self.key_column_index = 0
         self.main_file_name = ""
-        self.main_file_path = ""  # 重置主表格文件路径
         self.main_sheet_name = ""  # 重置主表格工作表名称
         self.selected_columns = set()
         self.use_smart_match = False  # 重置智能匹配标志
@@ -845,7 +801,6 @@ class ImprovedExcelCompareEngine:
     def load_main_table(self, file_path):
         """加载主对比表格"""
         try:
-            self.main_file_path = file_path  # 保存文件路径
             self.main_file_name = os.path.splitext(os.path.basename(file_path))[0]
             
             # 读取Excel文件（支持多sheet，这里取第一个）
@@ -855,7 +810,7 @@ class ImprovedExcelCompareEngine:
             # 使用第一个sheet作为主表格
             first_sheet = sheet_names[0]
             self.main_sheet_name = first_sheet  # 保存工作表名称
-            self.main_table = pd.read_excel(file_path, sheet_name=first_sheet, dtype=str)
+            self.main_table = pd.read_excel(file_path, sheet_name=first_sheet)
             self.main_columns = list(self.main_table.columns)
             
             message = f"主表格加载成功: {os.path.basename(file_path)}\n"
@@ -867,25 +822,6 @@ class ImprovedExcelCompareEngine:
             return True, message
         except Exception as e:
             return False, f"主表格加载失败: {str(e)}"
-    
-    def load_main_file(self, file_path, sheet_name):
-        """加载主对比表格的指定工作表"""
-        try:
-            self.main_file_path = file_path  # 保存文件路径
-            self.main_file_name = os.path.splitext(os.path.basename(file_path))[0]
-            self.main_sheet_name = sheet_name  # 保存工作表名称
-            
-            # 读取指定的工作表
-            self.main_table = pd.read_excel(file_path, sheet_name=sheet_name, dtype=str)
-            self.main_columns = list(self.main_table.columns)
-            
-            message = f"主表格工作表加载成功: {os.path.basename(file_path)} - {sheet_name}\n"
-            message += f"行数: {len(self.main_table)}, 列数: {len(self.main_columns)}\n"
-            message += f"列名: {', '.join(self.main_columns[:5])}{'...' if len(self.main_columns) > 5 else ''}"
-            
-            return True, message
-        except Exception as e:
-            return False, f"主表格工作表加载失败: {str(e)}"
     
     def set_key_column(self, column_index):
         """设置用于行匹配的关键列索引"""
@@ -1096,7 +1032,7 @@ class ImprovedExcelCompareEngine:
                         
                         if sheet_names:
                             first_sheet = sheet_names[0]
-                            compare_df = pd.read_excel(file_path, sheet_name=first_sheet, dtype=str)
+                            compare_df = pd.read_excel(file_path, sheet_name=first_sheet)
                             compare_columns = set(compare_df.columns)
                             
                             # 与当前文件的列取交集
@@ -1125,7 +1061,7 @@ class ImprovedExcelCompareEngine:
                         
                         if sheet_names:
                             first_sheet = sheet_names[0]
-                            compare_df = pd.read_excel(file_path, sheet_name=first_sheet, dtype=str)
+                            compare_df = pd.read_excel(file_path, sheet_name=first_sheet)
                             all_compare_columns.extend(compare_df.columns)
                     except Exception as e:
                         continue
@@ -1171,23 +1107,14 @@ class ImprovedExcelCompareEngine:
                 return []
     
     def _normalize_value(self, value):
-        """标准化值，处理数据类型不一致但值相同的情况，保持前导零"""
+        """标准化值，处理数据类型不一致但值相同的情况"""
         if pd.isna(value):
             return None
         
         # 转换为字符串并去掉首尾空格
         str_value = str(value).strip()
         
-        # 处理字符串形式的 'nan'
-        if str_value.lower() in ['nan', 'none', '']:
-            return None
-        
-        # 对于包含前导零的字符串，直接返回字符串形式以保持前导零
-        # 检查是否是以0开头的数字字符串（但不是单独的"0"）
-        if str_value.startswith('0') and len(str_value) > 1 and str_value.isdigit():
-            return str_value  # 保持前导零
-        
-        # 对于其他情况，尝试转换为数字（处理数值类型不一致的情况）
+        # 尝试转换为数字（处理数值类型不一致的情况）
         try:
             # 如果是整数形式的浮点数，转换为整数
             if '.' in str_value and str_value.replace('.', '').isdigit():
@@ -1195,7 +1122,7 @@ class ImprovedExcelCompareEngine:
                 if float_val.is_integer():
                     return int(float_val)
                 return float_val
-            # 如果是纯数字（但不以0开头），转换为整数
+            # 如果是纯数字，转换为整数
             elif str_value.isdigit():
                 return int(str_value)
             # 尝试转换为浮点数
@@ -1222,7 +1149,7 @@ class ImprovedExcelCompareEngine:
         # 都不是None/NaN，比较值
         return norm_val1 != norm_val2
     
-    def compare_tables(self, compare_files, output_dir, progress_callback=None, selected_sheet=None):
+    def compare_tables(self, compare_files, output_dir, progress_callback=None):
         """执行表格对比 - 改进版本"""
         if self.main_table is None:
             return False, "请先加载主表格"
@@ -1250,20 +1177,12 @@ class ImprovedExcelCompareEngine:
                 excel_file = pd.ExcelFile(compare_file_path)
                 sheet_names = excel_file.sheet_names
                 
-                # 确定要处理的工作表
-                if selected_sheet and selected_sheet in sheet_names:
-                    # 使用用户选择的工作表
-                    target_sheets = [selected_sheet]
-                else:
-                    # 如果没有指定或指定的工作表不存在，使用第一个工作表
-                    target_sheets = [sheet_names[0]] if sheet_names else []
-                
-                for sheet_name in target_sheets:
+                for sheet_name in sheet_names:
                     if progress_callback:
                         progress_callback(f"  处理工作表: {sheet_name}")
                     
                     try:
-                        compare_df = pd.read_excel(compare_file_path, sheet_name=sheet_name, dtype=str)
+                        compare_df = pd.read_excel(compare_file_path, sheet_name=sheet_name)
                         
                         # 检查关键列是否存在
                         if key_column_name not in compare_df.columns:
@@ -1271,15 +1190,12 @@ class ImprovedExcelCompareEngine:
                                 progress_callback(f"    ⚠ 跳过：关键列 '{key_column_name}' 不存在")
                             continue
                         
-                        # 找到两个表格的共同列（支持智能匹配），排除临时列
-                        main_columns_filtered = [col for col in self.main_table.columns if col != '__original_row_number__']
-                        compare_columns_filtered = [col for col in compare_df.columns if col != '__original_row_number__']
-                        
+                        # 找到两个表格的共同列（支持智能匹配）
                         if self.use_smart_match:
                             # 智能匹配模式：建立列名映射关系
                             matched_pairs = self._find_matching_columns(
-                                main_columns_filtered,
-                                compare_columns_filtered,
+                                list(self.main_table.columns), 
+                                list(compare_df.columns), 
                                 use_smart_match=True
                             )
                             
@@ -1293,7 +1209,7 @@ class ImprovedExcelCompareEngine:
                                 
                         else:
                             # 传统精确匹配
-                            common_columns = list(set(main_columns_filtered) & set(compare_columns_filtered))
+                            common_columns = list(set(self.main_table.columns) & set(compare_df.columns))
                             # 创建一对一映射
                             column_mapping = {col: col for col in common_columns}
                         
@@ -1315,8 +1231,8 @@ class ImprovedExcelCompareEngine:
                         
                         # 添加详细的共同列信息日志
                         if progress_callback:
-                            main_cols = set(main_columns_filtered)
-                            compare_cols = set(compare_columns_filtered)
+                            main_cols = set(self.main_table.columns)
+                            compare_cols = set(compare_df.columns)
                             only_in_main = main_cols - compare_cols
                             only_in_compare = compare_cols - main_cols
                             
@@ -1328,16 +1244,9 @@ class ImprovedExcelCompareEngine:
                             if only_in_compare:
                                 progress_callback(f"    ⚠ 对比表格独有列: {list(only_in_compare)}")
                         
-                        # 在设置索引之前，先保存原始行号信息
-                        main_table_with_row_num = self.main_table.copy()
-                        main_table_with_row_num['__original_row_number__'] = range(2, len(self.main_table) + 2)  # Excel行号从2开始（考虑表头）
-                        
-                        compare_df_with_row_num = compare_df.copy()
-                        compare_df_with_row_num['__original_row_number__'] = range(2, len(compare_df) + 2)  # Excel行号从2开始（考虑表头）
-                        
                         # 按关键列建立索引
-                        main_indexed = main_table_with_row_num.set_index(key_column_name)
-                        compare_indexed = compare_df_with_row_num.set_index(key_column_name)
+                        main_indexed = self.main_table.set_index(key_column_name)
+                        compare_indexed = compare_df.set_index(key_column_name)
                         
                         # 找到需要对比的行（关键列值相同的行）
                         common_keys = set(main_indexed.index) & set(compare_indexed.index)
@@ -1351,25 +1260,8 @@ class ImprovedExcelCompareEngine:
                         
                         # 逐行对比
                         for key in common_keys:
-                            # 处理重复键的情况：如果键重复，只取第一个
-                            # 注意：当键唯一时，loc[key]返回Series；当键重复时，返回DataFrame
-                            if isinstance(main_indexed.loc[key], pd.DataFrame):
-                                # 如果有重复键，取第一个
-                                main_row = main_indexed.loc[key].iloc[0]
-                                main_row_number = main_row['__original_row_number__']
-                            else:
-                                # 键是唯一的，直接使用
-                                main_row = main_indexed.loc[key]
-                                main_row_number = main_row['__original_row_number__']
-                            
-                            if isinstance(compare_indexed.loc[key], pd.DataFrame):
-                                # 如果有重复键，取第一个
-                                compare_row = compare_indexed.loc[key].iloc[0]
-                                compare_row_number = compare_row['__original_row_number__']
-                            else:
-                                # 键是唯一的，直接使用
-                                compare_row = compare_indexed.loc[key]
-                                compare_row_number = compare_row['__original_row_number__']
+                            main_row = main_indexed.loc[key]
+                            compare_row = compare_indexed.loc[key]
                             
                             # 检查共同列是否有差异（使用列名映射）
                             row_has_differences = False
@@ -1399,8 +1291,7 @@ class ImprovedExcelCompareEngine:
                                         main_value = main_row[main_col] if main_col in main_row.index else ''
                                         main_record[main_col] = main_value
                                 main_record['差异列'] = ', '.join(different_columns)
-                                # 使用之前已经计算好的行号（在第275-286行计算）
-                                main_record['数据来源'] = f'{self.main_file_name}_{self.main_sheet_name}_主表格_行{main_row_number}'
+                                main_record['数据来源'] = f'{self.main_file_name}_{self.main_sheet_name}_主表格'
                                 all_difference_records.append(main_record)
                                 
                                 # 创建对比表格记录（下一行）- 使用主表格列名作为标准
@@ -1414,8 +1305,7 @@ class ImprovedExcelCompareEngine:
                                         # 但在输出中仍使用主表格的列名保持一致
                                         compare_record[main_col] = compare_value
                                 compare_record['差异列'] = ', '.join(different_columns)
-                                # 使用之前已经计算好的行号（在第292-303行计算）
-                                compare_record['数据来源'] = f'{compare_file_name}_{sheet_name}_对比表格_行{compare_row_number}'
+                                compare_record['数据来源'] = f'{compare_file_name}_{sheet_name}_对比表格'
                                 all_difference_records.append(compare_record)
                                 
                                 sheet_differences += 1
@@ -1619,17 +1509,11 @@ class ImprovedExcelCompareGUI:
         self.engine = ImprovedExcelCompareEngine()
         self.compare_files = []
         
-        # 工作表选择相关变量
-        self.main_sheet_names = []
-        self.main_sheet_var = tk.StringVar()
-        self.compare_sheet_names = []
-        self.compare_sheet_var = tk.StringVar()
-        
         self.setup_ui()
         
     def setup_ui(self):
         """设置用户界面"""
-        self.root.title("Excel小工具 v4.3")
+        self.root.title("Excel小工具 v4.1.1")
         self.root.geometry("1100x850")  # 调整窗口大小以适应新布局
         
         # 设置最小窗口大小，确保界面不会过小
@@ -1641,12 +1525,6 @@ class ImprovedExcelCompareGUI:
             style.theme_use('clam')
         except:
             pass
-        
-        # 设置绿色进度条样式
-        style.configure("green.Horizontal.TProgressbar", 
-                       background='green', 
-                       troughcolor='lightgray',
-                       borderwidth=1)
         
         # 创建主框架
         main_frame = ttk.Frame(self.root, padding="15")
@@ -1662,7 +1540,7 @@ class ImprovedExcelCompareGUI:
         main_frame.rowconfigure(1, weight=1)  # 标签页区域
         
         # 标题
-        title_label = ttk.Label(main_frame, text="Excel小工具 v4.3",
+        title_label = ttk.Label(main_frame, text="Excel小工具 v4.1.1", 
                                font=("Arial", 18, "bold"))
         title_label.grid(row=0, column=0, pady=(0, 15))
         
@@ -1706,13 +1584,6 @@ class ImprovedExcelCompareGUI:
                  state="readonly", font=("Arial", 10)).grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 10), pady=(0, 10))
         ttk.Button(main_file_frame, text="选择文件", 
                   command=self.select_main_file).grid(row=0, column=1, pady=(0, 10))
-        
-        # 主表格工作表选择
-        ttk.Label(main_file_frame, text="工作表:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.main_sheet_combo = ttk.Combobox(main_file_frame, textvariable=self.main_sheet_var,
-                                           state="readonly", font=("Arial", 9))
-        self.main_sheet_combo.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=(0, 10), pady=(0, 10))
-        self.main_sheet_combo.bind('<<ComboboxSelected>>', self.on_main_sheet_selected)
         
         # 右侧：关键列选择
         key_column_frame = ttk.LabelFrame(compare_frame, text="2. 选择用于行匹配的关键列", padding="10")
@@ -1764,14 +1635,7 @@ class ImprovedExcelCompareGUI:
         ttk.Button(files_buttons_frame, text="移除选中", 
                   command=self.remove_selected_file).grid(row=1, column=0, pady=(0, 5))
         ttk.Button(files_buttons_frame, text="清空列表", 
-                  command=self.clear_files).grid(row=2, column=0, pady=(0, 5))
-        
-        # 对比文件工作表选择
-        ttk.Label(files_buttons_frame, text="默认工作表:", font=("Arial", 8)).grid(row=3, column=0, sticky=tk.W, pady=(10, 2))
-        self.compare_sheet_combo = ttk.Combobox(files_buttons_frame, textvariable=self.compare_sheet_var,
-                                              state="readonly", font=("Arial", 8), width=12)
-        self.compare_sheet_combo.grid(row=4, column=0, pady=(0, 5))
-        self.compare_sheet_combo.bind('<<ComboboxSelected>>', self.on_compare_sheet_selected)
+                  command=self.clear_files).grid(row=2, column=0)
         
         # 右侧：比对设置（竖排布局）
         settings_frame = ttk.LabelFrame(compare_frame, text="4. 比对设置", padding="10")
@@ -1785,11 +1649,10 @@ class ImprovedExcelCompareGUI:
         exclude_frame = ttk.LabelFrame(settings_frame, text="比对列选择", padding="8")
         exclude_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         exclude_frame.columnconfigure(0, weight=1)
-        # 优化内部元素布局：确保所有控件都可见
+        # 优化内部元素布局：让状态信息能够更好地适应空间变化
         exclude_frame.rowconfigure(0, weight=0)  # 说明文字，固定高度
-        exclude_frame.rowconfigure(1, weight=0)  # 智能匹配选项，固定高度
-        exclude_frame.rowconfigure(2, weight=0)  # 选择按钮，固定高度
-        exclude_frame.rowconfigure(3, weight=1)  # 状态信息，可伸缩
+        exclude_frame.rowconfigure(1, weight=0)  # 按钮，固定高度  
+        exclude_frame.rowconfigure(2, weight=1)  # 状态信息，充分利用可用空间
         
         ttk.Label(exclude_frame, text="选择哪些列参与对比（关键列为必选项）：", 
                  font=("Arial", 9), foreground="darkblue").grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
@@ -1824,8 +1687,8 @@ class ImprovedExcelCompareGUI:
         output_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         output_frame.columnconfigure(0, weight=1)
         # 输出目录区域内部布局：确保控件在任何大小下都可见可操作
-        output_frame.rowconfigure(0, weight=0)     # 说明文字，固定高度
-        output_frame.rowconfigure(1, weight=0, minsize=40)  # 输入控件区域，固定最小高度确保可见
+        output_frame.rowconfigure(0, weight=0)  # 说明文字，固定高度
+        output_frame.rowconfigure(1, weight=1)  # 输入控件区域，可适应调整但保持可用性
         
         ttk.Label(output_frame, text="选择差异报告的保存位置：", 
                  font=("Arial", 9), foreground="darkblue").grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
@@ -1839,6 +1702,26 @@ class ImprovedExcelCompareGUI:
                  state="readonly", font=("Arial", 10)).grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 10))
         ttk.Button(output_controls_frame, text="选择目录", 
                   command=self.select_output_dir).grid(row=0, column=1)
+        
+        # 保留折叠功能（隐藏）但不显示在主界面中
+        self.exclude_checkboxes_frame = ttk.Frame(compare_frame)
+        self.exclude_canvas = tk.Canvas(self.exclude_checkboxes_frame, height=0)
+        self.exclude_scrollbar = ttk.Scrollbar(self.exclude_checkboxes_frame, orient="vertical", 
+                                              command=self.exclude_canvas.yview)
+        self.exclude_scrollable_frame = ttk.Frame(self.exclude_canvas)
+        
+        self.exclude_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.exclude_canvas.configure(scrollregion=self.exclude_canvas.bbox("all"))
+        )
+        
+        self.exclude_canvas.create_window((0, 0), window=self.exclude_scrollable_frame, anchor="nw")
+        self.exclude_canvas.configure(yscrollcommand=self.exclude_scrollbar.set)
+        
+        # 初始状态变量
+        self.exclude_columns_expanded = False
+        self.exclude_column_vars = {}  # 存储每列的选择状态
+        self.selected_columns = set()  # 存储选中的列
         
         # 5. 执行对比
         action_frame = ttk.Frame(compare_frame)
@@ -1867,19 +1750,11 @@ class ImprovedExcelCompareGUI:
         self.log_text = scrolledtext.ScrolledText(log_frame, height=6, font=("Consolas", 9))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        # 进度条替代状态栏
-        progress_frame = ttk.Frame(compare_frame)
-        progress_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-        progress_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(progress_frame, text="进度:", font=("Arial", 9)).grid(row=0, column=0, padx=(0, 10))
-        self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, 
-                                          maximum=100, style="green.Horizontal.TProgressbar")
-        self.progress_bar.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
-        
-        self.progress_label = ttk.Label(progress_frame, text="就绪", font=("Arial", 9))
-        self.progress_label.grid(row=0, column=2)
+        # 状态栏
+        self.status_var = tk.StringVar(value="就绪")
+        status_bar = ttk.Label(compare_frame, textvariable=self.status_var, 
+                              relief=tk.SUNKEN, anchor=tk.W, font=("Arial", 9))
+        status_bar.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # 完善自适应配置 - 设置行列权重以确保各区域能够自适应调整
         # 行权重配置：让需要伸缩的区域有合适的权重
@@ -1892,7 +1767,7 @@ class ImprovedExcelCompareGUI:
         compare_frame.rowconfigure(6, weight=0)  # 状态栏，固定高度
         
         # 初始化日志
-        self.log("Excel小工具 v4.3 已启动")
+        self.log("Excel小工具 v4.1.1 已启动")
         self.log("新功能：标签页界面，支持多种Excel处理工具")
         self.log("对比工具：比对列选择，弹出窗口智能选择，关键列必选机制")
         self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
@@ -2212,9 +2087,24 @@ class ImprovedExcelCompareGUI:
         api_status_frame.columnconfigure(1, weight=1)
         
         ttk.Label(api_status_frame, text="API状态:", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky=tk.W)
-        self.api_status_label = ttk.Label(api_status_frame, text="", font=("Arial", 9), 
-                                        foreground="red")
+        
+        # 显示API配置状态
+        if ENV_CONFIG['api_key']:
+            status_text = f"✅ 已配置 (Key: {ENV_CONFIG['api_key'][:10]}...)"
+            status_color = "darkgreen"
+        else:
+            status_text = "❌ 未配置API Key"
+            status_color = "red"
+        
+        self.api_status_label = ttk.Label(api_status_frame, text=status_text, font=("Arial", 9), 
+                                        foreground=status_color)
         self.api_status_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        
+        # 添加配置说明
+        config_hint = ttk.Label(dialog_frame, 
+                               text="💡 API Key已从.env文件自动加载，如需修改请编辑.env文件后重启程序", 
+                               font=("Arial", 8), foreground="gray", wraplength=300)
+        config_hint.grid(row=1, column=0, sticky=tk.W, pady=(0, 10))
         
         # 对话区域
         ttk.Label(dialog_frame, text="快速对话：", font=("Arial", 9)).grid(row=2, column=0, sticky=tk.W, pady=(0, 5))
@@ -2308,7 +2198,7 @@ class ImprovedExcelCompareGUI:
         
         # 初始化日志
         self.analysis_log("数据分析工具已启动")
-        self.analysis_log("支持多文件Excel数据脱敏、DeepSeek对话分析和综合报告生成")
+        self.analysis_log("支持多文件Excel数据合并、脱敏、DeepSeek对话分析和综合报告生成")
         
         # 初始化对话
         self.dialog_text.insert(tk.END, "DeepSeek助手: 您好！我是您的数据分析助手。请先上传Excel文件，然后我们可以开始分析对话。\n\n")
@@ -2321,311 +2211,258 @@ class ImprovedExcelCompareGUI:
         self.log_text.see(tk.END)
         self.root.update_idletasks()
     
-    def update_status(self, message, progress=None):
-        """更新状态栏和进度条"""
-        self.progress_label.config(text=message)
-        if progress is not None:
-            self.progress_var.set(progress)
+    def update_status(self, message):
+        """更新状态栏"""
+        self.status_var.set(message)
         self.root.update_idletasks()
-    
-    def update_progress(self, percentage, message=""):
-        """更新进度条百分比"""
-        self.progress_var.set(percentage)
-        if message:
-            self.progress_label.config(text=f"{message} ({percentage:.1f}%)")
-        else:
-            self.progress_label.config(text=f"{percentage:.1f}%")
-        self.root.update_idletasks()
-    
-    def get_sheet_names(self, file_path):
-        """获取Excel文件的工作表名称列表"""
-        try:
-            if file_path.endswith('.csv'):
-                return ['Sheet1']  # CSV文件只有一个sheet
-            
-            import openpyxl
-            wb = openpyxl.load_workbook(file_path, read_only=True)
-            sheet_names = wb.sheetnames
-            wb.close()
-            return sheet_names
-        except Exception as e:
-            self.log(f"获取工作表名称失败: {str(e)}")
-            return []
-    
-    def on_main_sheet_selected(self, event=None):
-        """主表格工作表选择事件"""
-        selected_sheet = self.main_sheet_var.get()
-        if selected_sheet and hasattr(self.engine, 'main_file_path'):
-            # 重新加载主表格数据
-            success, message = self.engine.load_main_file(self.engine.main_file_path, selected_sheet)
-            if success:
-                self.key_column_combo.delete(0, tk.END)
-                self.key_column_combo['values'] = self.engine.main_columns
-                if self.engine.main_columns:
-                    self.key_column_combo.set(self.engine.main_columns[0])
-                    self.engine.set_key_column(0)
-                self.key_column_info.set(f"主表格共有 {len(self.engine.main_columns)} 列")
-                self.log(f"✓ 主表格工作表切换至: {selected_sheet}")
-            else:
-                self.log(f"✗ 工作表切换失败: {message}")
-    
-    def on_compare_sheet_selected(self, event=None):
-        """对比文件工作表选择事件"""
-        selected_sheet = self.compare_sheet_var.get()
-        if selected_sheet:
-            self.log(f"✓ 对比文件默认工作表设置为: {selected_sheet}")
-            # 这里可以添加更多逻辑来处理对比文件的工作表选择
     
     def select_main_file(self):
-        """选择主对比表格文件"""
+        """选择主对比文件"""
         file_path = filedialog.askopenfilename(
             title="选择主对比表格",
-            filetypes=[("Excel文件", "*.xlsx *.xls"), ("CSV文件", "*.csv"), ("所有文件", "*.*")]
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
         )
         
         if file_path:
-            self.main_file_var.set(file_path)
-            
-            # 获取工作表名称列表
-            sheet_names = self.get_sheet_names(file_path)
-            if sheet_names:
-                self.main_sheet_names = sheet_names
-                self.main_sheet_combo['values'] = sheet_names
-                self.main_sheet_var.set(sheet_names[0])  # 默认选择第一个工作表
+            success, message = self.engine.load_main_table(file_path)
+            if success:
+                self.main_file_var.set(file_path)
+                self.log(f"✓ {message}")
                 
-                # 保存文件路径到引擎
-                self.engine.main_file_path = file_path
+                # 更新关键列选择下拉框
+                columns_with_index = [f"第{i+1}列: {col}" for i, col in enumerate(self.engine.main_columns)]
+                self.key_column_combo['values'] = columns_with_index
                 
-                # 加载主表格
-                success, message = self.engine.load_main_table(file_path)
-                if success:
-                    self.log(f"✓ {message}")
-                    
-                    # 更新关键列选择
-                    self.key_column_combo['values'] = self.engine.main_columns
-                    if self.engine.main_columns:
-                        self.key_column_combo.set(self.engine.main_columns[0])
-                        self.engine.set_key_column(0)
-                    
-                    self.key_column_info.set(f"主表格共有 {len(self.engine.main_columns)} 列")
-                    
-                    # 更新比对列选择状态
-                    self._update_column_selection_status()
-                else:
-                    self.log(f"✗ {message}")
-                    messagebox.showerror("错误", message)
+                # 默认选择第一列
+                if columns_with_index:
+                    self.key_column_combo.current(0)
+                    self.on_key_column_selected(None)
+                
+                # 更新排除列选择的可用性
+                self.exclude_info.set(f"可选择列数: {len(self.engine.main_columns)} - 点击'选择比对列'开始设置")
+                
+                # 如果当前展开着排除列选择，更新复选框列表
+                if self.exclude_columns_expanded:
+                    self._update_exclude_checkboxes()
+                
+                self.update_status("主表格加载完成")
             else:
-                self.log("✗ 无法读取工作表信息")
-                messagebox.showerror("错误", "无法读取Excel文件的工作表信息")
+                messagebox.showerror("错误", message)
+                self.log(f"✗ {message}")
     
-    def on_key_column_selected(self, event=None):
+    def on_key_column_selected(self, event):
         """关键列选择事件"""
-        selected_column = self.key_column_var.get()
-        if selected_column and selected_column in self.engine.main_columns:
-            column_index = self.engine.main_columns.index(selected_column)
+        if self.key_column_combo.current() >= 0:
+            column_index = self.key_column_combo.current()
             success, message = self.engine.set_key_column(column_index)
             if success:
+                self.key_column_info.set(message)
                 self.log(f"✓ {message}")
-                self.key_column_info.set(f"已选择关键列: 第{column_index + 1}列 '{selected_column}'")
-                
-                # 更新比对列选择状态
-                self._update_column_selection_status()
-            else:
-                self.log(f"✗ {message}")
+    
+    def on_smart_match_changed(self):
+        """智能匹配开关状态变化事件"""
+        enabled = self.smart_match_var.get()
+        success, message = self.engine.set_smart_match(enabled)
+        if success:
+            self.log(f"✓ {message}")
+            # 如果有待对比文件，刷新可选列列表
+            if self.compare_files:
+                self.update_status("智能匹配设置已更新，请重新选择比对列")
     
     def add_compare_files(self):
         """添加待对比文件"""
         file_paths = filedialog.askopenfilenames(
             title="选择待对比文件",
-            filetypes=[("Excel文件", "*.xlsx *.xls"), ("CSV文件", "*.csv"), ("所有文件", "*.*")]
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
         )
         
-        if file_paths:
-            for file_path in file_paths:
-                if file_path not in self.compare_files:
-                    self.compare_files.append(file_path)
-                    # 添加到树形视图
-                    filename = os.path.basename(file_path)
-                    self.files_tree.insert('', 'end', values=(filename,))
-                    
-                    # 获取第一个文件的工作表名称用于默认设置
-                    if len(self.compare_files) == 1:
-                        sheet_names = self.get_sheet_names(file_path)
-                        if sheet_names:
-                            self.compare_sheet_names = sheet_names
-                            self.compare_sheet_combo['values'] = sheet_names
-                            self.compare_sheet_var.set(sheet_names[0])
-            
-            self.log(f"✓ 已添加 {len(file_paths)} 个待对比文件")
-            
-            # 更新比对列选择状态
-            self._update_column_selection_status()
+        for file_path in file_paths:
+            if file_path not in self.compare_files:
+                self.compare_files.append(file_path)
+                # 添加到树形视图
+                self.files_tree.insert('', tk.END, values=(os.path.basename(file_path),))
+                self.log(f"✓ 添加文件: {os.path.basename(file_path)}")
+        
+        self.update_status(f"已添加 {len(self.compare_files)} 个待对比文件")
     
     def remove_selected_file(self):
-        """移除选中的待对比文件"""
+        """移除选中的文件"""
         selected_items = self.files_tree.selection()
         if not selected_items:
-            messagebox.showwarning("警告", "请先选择要移除的文件")
+            messagebox.showwarning("提示", "请先选择要移除的文件")
             return
         
         for item in selected_items:
             # 获取文件名
-            filename = self.files_tree.item(item, 'values')[0]
-            
-            # 从列表中移除对应的文件路径
-            for file_path in self.compare_files[:]:
-                if os.path.basename(file_path) == filename:
-                    self.compare_files.remove(file_path)
-                    break
-            
-            # 从树形视图中移除
-            self.files_tree.delete(item)
+            values = self.files_tree.item(item, 'values')
+            if values:
+                filename = values[0]
+                # 从列表中移除
+                self.compare_files = [f for f in self.compare_files if os.path.basename(f) != filename]
+                # 从树形视图中移除
+                self.files_tree.delete(item)
+                self.log(f"✓ 移除文件: {filename}")
         
-        self.log(f"✓ 已移除 {len(selected_items)} 个文件")
-        
-        # 更新比对列选择状态
-        self._update_column_selection_status()
+        self.update_status(f"当前有 {len(self.compare_files)} 个待对比文件")
     
     def clear_files(self):
-        """清空待对比文件列表"""
+        """清空文件列表"""
         if self.compare_files:
-            if show_confirm_dialog("确认", "确定要清空所有待对比文件吗？"):
+            result = show_confirm_dialog("确认清空", "确定要清空所有待对比文件吗？")
+            if result:
                 self.compare_files.clear()
-                # 清空树形视图
-                for item in self.files_tree.get_children():
-                    self.files_tree.delete(item)
-                
-                self.log("✓ 已清空待对比文件列表")
-                
-                # 更新比对列选择状态
-                self._update_column_selection_status()
+                self.files_tree.delete(*self.files_tree.get_children())
+                self.log("✓ 已清空所有待对比文件")
+                self.update_status("文件列表已清空")
     
-    def on_smart_match_changed(self):
-        """智能匹配选项变化事件"""
-        enabled = self.smart_match_var.get()
-        success, message = self.engine.set_smart_match(enabled)
-        if success:
-            self.log(f"✓ {message}")
-            
-            # 更新比对列选择状态
-            self._update_column_selection_status()
-        else:
-            self.log(f"✗ {message}")
+    def select_output_dir(self):
+        """选择输出目录"""
+        directory = filedialog.askdirectory(title="选择输出目录")
+        if directory:
+            self.output_dir_var.set(directory)
+            self.log(f"✓ 输出目录: {directory}")
+            self.update_status("输出目录已选择")
     
-    def _update_column_selection_status(self):
-        """更新比对列选择状态信息"""
-        if not self.engine.main_table is None and self.compare_files:
-            # 获取共同列
-            common_columns = self.engine.get_common_columns_from_files(self.compare_files)
-            
-            if common_columns:
-                if self.engine.selected_columns:
-                    selected_count = len(self.engine.selected_columns)
-                    total_count = len(common_columns)
-                    self.exclude_info.set(f"已选择 {selected_count}/{total_count} 列参与对比")
-                else:
-                    self.exclude_info.set(f"发现 {len(common_columns)} 个共同列，请选择参与对比的列")
-            else:
-                self.exclude_info.set("未发现共同列，请检查文件格式")
-        else:
-            self.exclude_info.set("当前无选中列 - 请先选择主表格和待对比文件")
-    
-    def open_column_selection_window(self):
-        """打开列选择窗口"""
+    def start_compare(self):
+        """开始对比"""
+        # 验证输入
         if self.engine.main_table is None:
-            messagebox.showwarning("警告", "请先选择主表格")
+            messagebox.showwarning("提示", "请先选择主对比表格")
             return
         
         if not self.compare_files:
-            messagebox.showwarning("警告", "请先添加待对比文件")
+            messagebox.showwarning("提示", "请先添加待对比文件")
+            return
+        
+        if not self.output_dir_var.get():
+            messagebox.showwarning("提示", "请先选择输出目录")
+            return
+        
+        if self.key_column_combo.current() < 0:
+            messagebox.showwarning("提示", "请先选择关键列")
+            return
+        
+        # 禁用对比按钮
+        self.compare_button.config(state="disabled")
+        self.log("开始执行表格对比...")
+        self.update_status("正在对比表格...")
+        
+        def progress_callback(message):
+            self.log(message)
+        
+        def compare_thread():
+            try:
+                success, message, output_path = self.engine.compare_tables(
+                    self.compare_files,
+                    self.output_dir_var.get(),
+                    progress_callback
+                )
+                self.root.after(0, lambda: self.compare_complete(success, message, output_path))
+            except Exception as e:
+                self.root.after(0, lambda: self.compare_complete(False, f"对比过程异常: {str(e)}", None))
+        
+        threading.Thread(target=compare_thread, daemon=True).start()
+    
+    def compare_complete(self, success, message, output_path):
+        """对比完成回调"""
+        self.compare_button.config(state="normal")
+        
+        if success:
+            self.log(f"✓ {message}")
+            self.update_status("表格对比完成")
+            messagebox.showinfo("成功", message)
+            
+            # 如果生成了差异报告文件，自动打开保存目录
+            if output_path and os.path.exists(output_path):
+                self.log("正在打开差异报告保存目录并高亮显示文件...")
+                if open_and_highlight_file(output_path):
+                    self.log("✓ 已自动打开差异报告保存目录并高亮显示差异报告文件")
+                else:
+                    self.log("✗ 打开目录或高亮显示文件失败，请手动查看文件")
+            
+            return output_path
+        else:
+            self.log(f"✗ {message}")
+            self.update_status("表格对比失败")
+            messagebox.showerror("错误", message)
+            return None
+    
+    def open_column_selection_window(self):
+        """打开列选择弹出窗口"""
+        if self.engine.main_table is None:
+            messagebox.showwarning("提示", "请先选择主表格")
+            return
+            
+        if not self.compare_files:
+            messagebox.showwarning("提示", "请先添加待对比文件")
             return
         
         # 获取共同列
+        self.log(f"开始检测共同列...")
+        self.log(f"主表格列数: {len(self.engine.main_columns)}")
+        self.log(f"主表格列名: {self.engine.main_columns[:5]}{'...' if len(self.engine.main_columns) > 5 else ''}")
+        self.log(f"待对比文件数: {len(self.compare_files)}")
+        
         common_columns = self.engine.get_common_columns_from_files(self.compare_files)
         
+        self.log(f"检测到共同列数: {len(common_columns)}")
+        if common_columns:
+            self.log(f"共同列名: {common_columns[:5]}{'...' if len(common_columns) > 5 else ''}")
+        
         if not common_columns:
-            messagebox.showwarning("警告", "未发现共同列，请检查文件格式")
+            messagebox.showwarning("提示", 
+                                 f"主表格与对比文件没有共同列\n\n" +
+                                 f"主表格列数: {len(self.engine.main_columns)}\n" +
+                                 f"对比文件数: {len(self.compare_files)}\n\n" +
+                                 f"请检查：\n" +
+                                 f"1. 文件格式是否正确\n" +
+                                 f"2. 列名是否完全一致\n" +
+                                 f"3. 是否存在空格或特殊字符差异")
             return
         
-        # 创建列选择窗口
-        self._show_column_selection_dialog(common_columns)
-    
-    def _show_column_selection_dialog(self, common_columns):
-        """显示列选择对话框"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("选择参与对比的列")
-        dialog.geometry("600x500")
-        dialog.resizable(True, True)
-        dialog.transient(self.root)
-        dialog.grab_set()
+        # 创建弹出窗口
+        self.column_window = tk.Toplevel(self.root)
+        self.column_window.title("选择参与对比的列")
+        self.column_window.geometry("500x400")
+        self.column_window.resizable(True, True)
         
-        # 居中显示
-        dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
-        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
-        dialog.geometry(f"600x500+{x}+{y}")
+        # 设置弹出窗口的最小大小
+        self.column_window.minsize(400, 300)
         
-        # 配置对话框
-        dialog.columnconfigure(0, weight=1)
-        dialog.rowconfigure(0, weight=1)
+        # 设置窗口居中
+        self.column_window.transient(self.root)
+        self.column_window.grab_set()
         
         # 主框架
-        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame = ttk.Frame(self.column_window, padding="15")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # 配置弹出窗口的自适应
+        self.column_window.columnconfigure(0, weight=1)
+        self.column_window.rowconfigure(0, weight=1)
+        
+        # 配置主框架的自适应
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(2, weight=1)
+        main_frame.rowconfigure(0, weight=0)  # 标题行，固定高度
+        main_frame.rowconfigure(1, weight=0)  # 说明行，固定高度
+        main_frame.rowconfigure(2, weight=1)  # 列选择区域，主要伸缩区域
+        main_frame.rowconfigure(3, weight=0)  # 按钮行，固定高度
         
-        # 标题和说明
-        title_label = ttk.Label(main_frame, text="选择参与对比的列", font=("Arial", 14, "bold"))
-        title_label.grid(row=0, column=0, pady=(0, 10))
+        # 标题
+        title_label = ttk.Label(main_frame, text="选择参与对比的列", 
+                               font=("Arial", 14, "bold"))
+        title_label.grid(row=0, column=0, pady=(0, 15))
         
-        # 获取所有列信息
-        main_columns = set(self.engine.main_columns)
-        all_compare_columns = set()
-        
-        # 收集所有对比文件的列
-        for file_path in self.compare_files:
-            try:
-                excel_file = pd.ExcelFile(file_path)
-                sheet_names = excel_file.sheet_names
-                first_sheet = sheet_names[0]
-                compare_df = pd.read_excel(file_path, sheet_name=first_sheet, dtype=str)
-                all_compare_columns.update(compare_df.columns)
-            except:
-                continue
-        
-        # 分类列
-        common_cols = main_columns & all_compare_columns
-        main_only_cols = main_columns - all_compare_columns
-        compare_only_cols = all_compare_columns - main_columns
-        
-        # 创建所有列的列表（按类别排序）
-        all_columns = []
-        column_types = {}  # 记录每列的类型
-        
-        # 添加共同列（蓝色）
-        for col in sorted(common_cols):
-            all_columns.append(col)
-            column_types[col] = 'common'
-        
-        # 添加主表格独有列（黑色）
-        for col in sorted(main_only_cols):
-            all_columns.append(col)
-            column_types[col] = 'main_only'
-        
-        # 添加对比文件独有列（灰色）
-        for col in sorted(compare_only_cols):
-            all_columns.append(col)
-            column_types[col] = 'compare_only'
-        
-        # 更新说明文本
-        info_text = f"""共发现 {len(all_columns)} 列：
-• 蓝色：共同列 ({len(common_cols)} 个) - 可参与对比
-• 黑色：主表格独有列 ({len(main_only_cols)} 个) - 可参与对比
-• 灰色：对比文件独有列 ({len(compare_only_cols)} 个) - 仅显示，不可选择
-关键列 '{self.engine.main_columns[self.engine.key_column_index]}' 为必选项"""
-        info_label = ttk.Label(main_frame, text=info_text, font=("Arial", 10), foreground="darkblue")
-        info_label.grid(row=1, column=0, pady=(0, 15))
+        # 说明文字
+        key_column_name = self.engine.main_columns[self.engine.key_column_index]
+        if self.engine.use_smart_match:
+            match_mode = "智能匹配模式（包含、后缀、关键词多层次匹配）"
+        else:
+            match_mode = "精确匹配模式"
+        desc_text = f"以下是主表格与对比文件的共同列（{match_mode}）：\n关键列 '{key_column_name}' 为必选项，其他列可自由选择"
+        desc_label = ttk.Label(main_frame, text=desc_text, 
+                              font=("Arial", 10), foreground="darkblue")
+        desc_label.grid(row=1, column=0, pady=(0, 10))
         
         # 列选择区域
         list_frame = ttk.Frame(main_frame)
@@ -2633,225 +2470,160 @@ class ImprovedExcelCompareGUI:
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         
-        # 创建列表框
-        columns_listbox = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, font=("Arial", 10))
-        columns_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # 创建滚动区域
+        canvas = tk.Canvas(list_frame)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
         
-        # 滚动条
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=columns_listbox.yview)
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        columns_listbox.configure(yscrollcommand=scrollbar.set)
         
-        # 填充列表
-        key_column_name = self.engine.main_columns[self.engine.key_column_index]
-        selectable_indices = []  # 记录可选择的索引
+        # 存储复选框变量
+        self.column_selection_vars = {}
         
-        for i, col in enumerate(all_columns):
-            col_type = column_types[col]
-            display_text = col
+        # 为每个共同列创建复选框
+        for i, col in enumerate(common_columns):
+            var = tk.BooleanVar()
             
+            # 关键列默认选中且不可更改
             if col == key_column_name:
-                display_text += " (关键列 - 必选)"
+                var.set(True)
+                checkbox = ttk.Checkbutton(
+                    scrollable_frame,
+                    text=f"第{self.engine.main_columns.index(col) + 1}列: {col} (必选)",
+                    variable=var,
+                    state="disabled"
+                )
+            else:
+                # 如果之前有选择，保持选择状态
+                if col in self.engine.selected_columns:
+                    var.set(True)
+                checkbox = ttk.Checkbutton(
+                    scrollable_frame,
+                    text=f"第{self.engine.main_columns.index(col) + 1}列: {col}",
+                    variable=var
+                )
             
-            # 添加类型标识
-            if col_type == 'main_only':
-                display_text += " [仅主表格]"
-            elif col_type == 'compare_only':
-                display_text += " [仅对比文件]"
-            
-            columns_listbox.insert(tk.END, display_text)
-            
-            # 设置颜色
-            if col_type == 'common':
-                columns_listbox.itemconfig(i, {'fg': 'blue'})
-                selectable_indices.append(i)
-                # 预选已选择的列
-                if col in self.engine.selected_columns or col == key_column_name:
-                    columns_listbox.selection_set(i)
-            elif col_type == 'main_only':
-                columns_listbox.itemconfig(i, {'fg': 'black'})
-                selectable_indices.append(i)  # 主表格独有列也可以选择
-                # 预选已选择的列
-                if col in self.engine.selected_columns or col == key_column_name:
-                    columns_listbox.selection_set(i)
-            else:  # compare_only
-                columns_listbox.itemconfig(i, {'fg': 'gray'})
+            checkbox.grid(row=i, column=0, sticky=tk.W, padx=10, pady=2)
+            self.column_selection_vars[col] = var
         
-        # 操作按钮
+        # 操作按钮区域
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=3, column=0, pady=(10, 0))
         
-        def select_all():
-            # 选择可选择的列（共同列和主表格独有列）
-            for idx in selectable_indices:
-                columns_listbox.selection_set(idx)
-        
-        def clear_selection():
-            columns_listbox.selection_clear(0, tk.END)
-            # 重新选择关键列
-            if key_column_name in all_columns:
-                key_index = all_columns.index(key_column_name)
-                if key_index in selectable_indices:
-                    columns_listbox.selection_set(key_index)
-        
-        def confirm_selection():
-            selected_indices = columns_listbox.curselection()
-            selected_columns = []
-            
-            for idx in selected_indices:
-                col = all_columns[idx]
-                # 允许选择共同列和主表格独有列
-                if column_types[col] in ['common', 'main_only']:
-                    selected_columns.append(col)
-            
-            # 确保关键列被选中
-            if key_column_name not in selected_columns:
-                messagebox.showwarning("警告", f"关键列 '{key_column_name}' 必须被选中")
-                return
-            
-            # 更新引擎中的选中列
-            success, message = self.engine.set_selected_columns(selected_columns)
-            if success:
-                self.log(f"✓ {message}")
-                self._update_column_selection_status()
-                dialog.destroy()
-            else:
-                self.log(f"✗ {message}")
-                messagebox.showerror("错误", message)
-        
-        ttk.Button(button_frame, text="全选可用列", command=select_all).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(button_frame, text="清空", command=clear_selection).grid(row=0, column=1, padx=(0, 10))
-        ttk.Button(button_frame, text="确认", command=confirm_selection).grid(row=0, column=2, padx=(0, 10))
-        ttk.Button(button_frame, text="取消", command=dialog.destroy).grid(row=0, column=3)
+        ttk.Button(button_frame, text="全选", 
+                  command=self.select_all_columns_in_window).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(button_frame, text="全清", 
+                  command=self.clear_all_columns_in_window).grid(row=0, column=1, padx=(0, 10))
+        ttk.Button(button_frame, text="确定", 
+                  command=self.confirm_column_selection).grid(row=0, column=2, padx=(0, 10))
+        ttk.Button(button_frame, text="取消", 
+                  command=self.column_window.destroy).grid(row=0, column=3)
     
-    def select_output_dir(self):
-        """选择输出目录"""
-        directory = filedialog.askdirectory(title="选择差异报告保存目录")
-        if directory:
-            self.output_dir_var.set(directory)
-            self.log(f"✓ 输出目录设置为: {directory}")
+    def select_all_columns_in_window(self):
+        """在弹出窗口中全选所有列"""
+        key_column_name = self.engine.main_columns[self.engine.key_column_index]
+        for col, var in self.column_selection_vars.items():
+            if col != key_column_name:  # 关键列已经是必选，跳过
+                var.set(True)
     
-    def start_compare(self):
-        """开始对比"""
-        # 验证输入
-        if self.engine.main_table is None:
-            messagebox.showwarning("警告", "请先选择主表格")
-            return
-        
-        if not self.compare_files:
-            messagebox.showwarning("警告", "请先添加待对比文件")
-            return
-        
-        if not self.engine.selected_columns:
-            messagebox.showwarning("警告", "请先选择参与对比的列")
-            return
-        
-        output_dir = self.output_dir_var.get()
-        if not output_dir:
-            messagebox.showwarning("警告", "请先选择输出目录")
-            return
-        
-        # 禁用按钮
-        self.compare_button.config(state="disabled")
-        
-        # 重置进度条
-        self.update_progress(0, "准备开始对比...")
-        
-        def progress_callback(message):
-            self.log(message)
-            # 简单的进度估算
-            if "处理文件" in message:
-                # 根据文件处理进度更新进度条
-                if "[" in message and "/" in message:
-                    try:
-                        progress_part = message.split("[")[1].split("]")[0]
-                        current, total = map(int, progress_part.split("/"))
-                        progress = (current / total) * 80  # 文件处理占80%
-                        self.update_progress(progress, f"处理文件 {current}/{total}")
-                    except:
-                        pass
-            elif "生成差异报告" in message:
-                self.update_progress(90, "生成差异报告...")
-            elif "重新排列差异记录" in message:
-                self.update_progress(95, "整理报告格式...")
-        
-        def compare_thread():
-            try:
-                # 获取用户选择的对比文件工作表
-                selected_sheet = self.compare_sheet_var.get() if hasattr(self, 'compare_sheet_var') else None
-                
-                success, message, output_path = self.engine.compare_tables(
-                    self.compare_files, output_dir, progress_callback, selected_sheet
-                )
-                
-                # 在主线程中更新UI
-                self.root.after(0, lambda: self._handle_compare_result(success, message, output_path))
-                
-            except Exception as e:
-                error_msg = f"对比过程中发生错误: {str(e)}"
-                self.root.after(0, lambda: self._handle_compare_error(error_msg))
-        
-        # 在后台线程中执行对比
-        threading.Thread(target=compare_thread, daemon=True).start()
+    def clear_all_columns_in_window(self):
+        """在弹出窗口中清空所有列（除了关键列）"""
+        key_column_name = self.engine.main_columns[self.engine.key_column_index]
+        for col, var in self.column_selection_vars.items():
+            if col != key_column_name:  # 关键列不能取消
+                var.set(False)
     
-    def _handle_compare_result(self, success, message, output_path):
-        """处理对比结果"""
+    def confirm_column_selection(self):
+        """确认列选择"""
+        selected_columns = [col for col, var in self.column_selection_vars.items() if var.get()]
+        
+        # 确保关键列被选中
+        key_column_name = self.engine.main_columns[self.engine.key_column_index]
+        if key_column_name not in selected_columns:
+            selected_columns.append(key_column_name)
+        
+        # 更新引擎
+        success, message = self.engine.set_selected_columns(selected_columns)
+        
         if success:
-            self.update_progress(100, "对比完成")
-            self.log(f"✓ {message}")
-            
-            # 询问是否打开结果文件
-            if output_path and show_confirm_dialog("对比完成", f"对比完成！\n\n{message}\n\n是否打开结果文件所在目录？"):
-                open_and_highlight_file(output_path)
-        else:
-            self.update_progress(0, "对比失败")
-            self.log(f"✗ {message}")
-            messagebox.showerror("错误", message)
+            # 更新界面显示
+            if selected_columns:
+                self.exclude_info.set(f"已选择 {len(selected_columns)} 列参与对比")
+                self.log(f"✓ {message}")
+            else:
+                self.exclude_info.set("当前无选中列")
+                self.log(f"✓ {message}")
         
-        # 重新启用按钮
-        self.compare_button.config(state="normal")
-    
-    def _handle_compare_error(self, error_msg):
-        """处理对比错误"""
-        self.update_progress(0, "对比失败")
-        self.log(f"✗ {error_msg}")
-        messagebox.showerror("错误", error_msg)
-        
-        # 重新启用按钮
-        self.compare_button.config(state="normal")
+        # 关闭窗口
+        self.column_window.destroy()
+        self.update_status("比对列选择已更新")
     
     def reset(self):
-        """重置所有设置"""
-        if show_confirm_dialog("确认", "确定要重置所有设置吗？这将清空所有已选择的文件和配置。"):
-            # 重置引擎
-            self.engine.reset()
+        """重置所有输入和状态"""
+        result = show_confirm_dialog("确认重置", "确定要重置所有输入和状态吗？\n这将清空所有已选择的文件和设置。")
+        if not result:
+            return
             
-            # 重置UI
-            self.main_file_var.set("")
-            self.main_sheet_var.set("")
-            self.main_sheet_combo['values'] = []
-            self.key_column_var.set("")
-            self.key_column_combo['values'] = []
-            self.key_column_info.set("请先选择主表格")
-            
-            # 清空文件列表
-            self.compare_files.clear()
-            for item in self.files_tree.get_children():
-                self.files_tree.delete(item)
-            
-            self.compare_sheet_var.set("")
-            self.compare_sheet_combo['values'] = []
-            
-            # 重置选项
-            self.smart_match_var.set(False)
-            self.exclude_info.set("当前无选中列 - 请先选择主表格和待对比文件")
-            
-            # 重置进度条
-            self.update_progress(0, "就绪")
-            
-            self.log("✓ 已重置所有设置")
+        # 重置引擎状态
+        self.engine.reset()
+        
+        # 重置文件列表
+        self.compare_files.clear()
+        self.files_tree.delete(*self.files_tree.get_children())
+        
+        # 重置主文件选择
+        self.main_file_var.set("")
+        
+        # 重置关键列选择
+        self.key_column_combo.delete(0, tk.END)
+        self.key_column_combo.set("")
+        self.key_column_var.set("")
+        self.key_column_info.set("请先选择主表格")
+        
+        # 重置排除列设置
+        self.exclude_column_vars.clear()
+        self.selected_columns.clear()
+        # 清空复选框区域
+        for widget in self.exclude_scrollable_frame.winfo_children():
+            widget.destroy()
+        # 隐藏复选框区域
+        if self.exclude_columns_expanded:
+            self.exclude_canvas.grid_remove()
+            self.exclude_scrollbar.grid_remove()
+            self.exclude_expand_button.config(text="选择比对列")
+            self.exclude_columns_expanded = False
+        self.exclude_info.set("当前无选中列 - 请先选择主表格和待对比文件")
+        
+        # 重置智能匹配选项
+        self.smart_match_var.set(False)
+        
+        # 重置输出目录
+        self.output_dir_var.set("")
+        
+        # 清空日志
+        self.log_text.delete(1.0, tk.END)
+        
+        # 重新初始化日志
+        self.log("Excel表格对比工具 - 改进版 v4.1.1 已重置")
+        self.log("新功能：比对列选择，弹出窗口智能选择，关键列必选机制")
+        self.log("新特性：差异报告自动序号命名，只对比选中的列")
+        self.log("界面优化：主表格和关键列并排，待对比文件和比对设置并排")
+        self.log("✓ 所有输入和状态已重置到初始状态")
+        
+        # 更新状态栏
+        self.update_status("就绪 - 已重置所有状态")
     
-    # 表格处理标签页的方法
+    # ==================== 表格处理功能方法 ====================
+    
     def process_log(self, message):
         """添加处理日志消息"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -2859,90 +2631,373 @@ class ImprovedExcelCompareGUI:
         self.process_log_text.see(tk.END)
         self.root.update_idletasks()
     
+    def process_update_status(self, message):
+        """更新处理状态栏"""
+        self.process_status_var.set(message)
+        self.root.update_idletasks()
+    
     def select_process_files(self):
-        """选择处理文件"""
+        """选择要处理的Excel文件（可多选）"""
         file_paths = filedialog.askopenfilenames(
-            title="选择Excel文件",
-            filetypes=[("Excel文件", "*.xlsx *.xls"), ("所有文件", "*.*")]
+            title="选择Excel文件进行处理（可多选）",
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
         )
         
-        if file_paths:
-            for file_path in file_paths:
-                if file_path not in self.process_files:
-                    self.process_files.append(file_path)
-                    filename = os.path.basename(file_path)
-                    # 获取工作表数量
-                    try:
-                        excel_file = pd.ExcelFile(file_path)
-                        sheet_count = len(excel_file.sheet_names)
-                        status = "待处理"
-                    except:
-                        sheet_count = "未知"
-                        status = "读取失败"
+        for file_path in file_paths:
+            if file_path not in self.process_files:
+                try:
+                    # 验证文件并获取工作表信息
+                    excel_file = pd.ExcelFile(file_path)
+                    sheet_count = len(excel_file.sheet_names)
                     
-                    self.process_files_tree.insert('', 'end', values=(filename, sheet_count, status))
-            
-            self.process_log(f"✓ 已添加 {len(file_paths)} 个文件")
+                    # 添加到文件列表
+                    self.process_files.append(file_path)
+                    
+                    # 添加到树形视图
+                    self.process_files_tree.insert('', tk.END, values=(
+                        os.path.basename(file_path), 
+                        f"{sheet_count}个", 
+                        "就绪"
+                    ))
+                    
+                    self.process_log(f"✓ 添加文件: {os.path.basename(file_path)} ({sheet_count}个工作表)")
+                    
+                except Exception as e:
+                    self.process_log(f"✗ 文件加载失败: {os.path.basename(file_path)} - {str(e)}")
+                    continue
+        
+        if self.process_files:
+            self.process_update_status(f"已加载 {len(self.process_files)} 个文件")
     
     def remove_process_file(self):
         """移除选中的处理文件"""
         selected_items = self.process_files_tree.selection()
         if not selected_items:
-            messagebox.showwarning("警告", "请先选择要移除的文件")
+            messagebox.showwarning("提示", "请先选择要移除的文件")
             return
         
         for item in selected_items:
-            filename = self.process_files_tree.item(item, 'values')[0]
-            for file_path in self.process_files[:]:
-                if os.path.basename(file_path) == filename:
-                    self.process_files.remove(file_path)
-                    break
-            self.process_files_tree.delete(item)
+            # 获取文件名
+            values = self.process_files_tree.item(item, 'values')
+            if values:
+                filename = values[0]
+                # 从列表中移除
+                self.process_files = [f for f in self.process_files if os.path.basename(f) != filename]
+                # 从树形视图中移除
+                self.process_files_tree.delete(item)
+                self.process_log(f"✓ 移除文件: {filename}")
         
-        self.process_log(f"✓ 已移除 {len(selected_items)} 个文件")
+        self.process_update_status(f"当前有 {len(self.process_files)} 个文件")
     
     def clear_process_files(self):
-        """清空处理文件列表"""
+        """清空所有处理文件"""
         if self.process_files:
-            if show_confirm_dialog("确认", "确定要清空所有文件吗？"):
+            result = show_confirm_dialog("确认清空", "确定要清空所有Excel文件吗？")
+            if result:
                 self.process_files.clear()
-                for item in self.process_files_tree.get_children():
-                    self.process_files_tree.delete(item)
-                self.process_log("✓ 已清空文件列表")
+                self.process_files_tree.delete(*self.process_files_tree.get_children())
+                self.process_log("✓ 已清空所有Excel文件")
+                self.process_update_status("文件列表已清空")
     
     def select_process_output(self):
         """选择处理输出目录"""
-        directory = filedialog.askdirectory(title="选择输出目录")
+        directory = filedialog.askdirectory(title="选择处理结果输出目录")
         if directory:
             self.process_output_var.set(directory)
-            self.process_log(f"✓ 输出目录设置为: {directory}")
+            self.process_log(f"✓ 输出目录: {directory}")
+            self.process_update_status("输出目录已选择")
+    
+    def detect_data_start(self, file_path, sheet_name=None):
+        """智能检测数据起始行（基于Excel数据整合工具.md的算法）"""
+        try:
+            # 读取前10行进行分析
+            df_sample = pd.read_excel(file_path, sheet_name=sheet_name, nrows=10, header=None)
+            
+            detection_strategy = self.header_detection_var.get()
+            
+            if detection_strategy == "manual":
+                # 手动指定起始行
+                try:
+                    return int(self.start_row_var.get()) - 1  # 转换为0索引
+                except ValueError:
+                    self.process_log("⚠ 手动指定的起始行号无效，使用自动检测")
+                    detection_strategy = "auto"
+            
+            if detection_strategy == "first_non_empty":
+                # 首非空行检测
+                for idx, row in df_sample.iterrows():
+                    if row.notna().sum() >= 3:  # 至少3个非空值
+                        return idx
+                return 0
+            
+            else:  # auto - 连续有效行检查（默认策略）
+                # 检查连续3行中至少有2行包含≥3个有效值
+                for start_idx in range(len(df_sample) - 2):
+                    valid_rows = 0
+                    for check_idx in range(start_idx, min(start_idx + 3, len(df_sample))):
+                        row = df_sample.iloc[check_idx]
+                        if row.notna().sum() >= 3:  # 至少3个有效值
+                            valid_rows += 1
+                    
+                    if valid_rows >= 2:  # 3行中至少2行有效
+                        return start_idx
+                
+                # 如果没有找到合适的起始行，返回第一个非空行
+                for idx, row in df_sample.iterrows():
+                    if row.notna().sum() >= 1:
+                        return idx
+                
+                return 0
+                
+        except Exception as e:
+            self.process_log(f"⚠ 智能检测失败: {str(e)}，使用默认起始行")
+            return 0
+    
+    def read_excel_with_header_detection(self, file_path, include_hidden=False):
+        """根据Excel数据整合工具.md实现的智能Excel读取"""
+        try:
+            excel_file = pd.ExcelFile(file_path)
+            sheet_names = excel_file.sheet_names
+            
+            # 过滤隐藏工作表（简化实现，实际需要使用openpyxl检测）
+            if not include_hidden:
+                # 这里简化处理，实际应该检查工作表的隐藏状态
+                visible_sheets = sheet_names
+            else:
+                visible_sheets = sheet_names
+            
+            result_data = {}
+            
+            for sheet_name in visible_sheets:
+                try:
+                    # 智能检测数据起始行
+                    start_row = self.detect_data_start(file_path, sheet_name)
+                    
+                    # 读取数据
+                    if self.optimize_memory_var.get():
+                        # 内存优化模式：分块读取（简化实现）
+                        df = pd.read_excel(file_path, sheet_name=sheet_name, 
+                                         skiprows=start_row, engine='openpyxl')
+                    else:
+                        df = pd.read_excel(file_path, sheet_name=sheet_name, 
+                                         skiprows=start_row)
+                    
+                    # 数据清洗
+                    if self.clean_data_var.get():
+                        # 移除空行和空列
+                        df = df.dropna(how='all')  # 移除全空行
+                        df = df.dropna(axis=1, how='all')  # 移除全空列
+                        
+                        # 清理异常值（可以扩展更复杂的逻辑）
+                        df = df.replace('', pd.NA)  # 空字符串转为NA
+                    
+                    # 移除重复行
+                    if self.remove_duplicates_var.get():
+                        original_count = len(df)
+                        df = df.drop_duplicates()
+                        removed_count = original_count - len(df)
+                        if removed_count > 0:
+                            self.process_log(f"  移除了 {removed_count} 行重复数据")
+                    
+                    result_data[sheet_name] = df
+                    self.process_log(f"  ✓ {sheet_name}: {len(df)}行 x {len(df.columns)}列")
+                    
+                except Exception as e:
+                    self.process_log(f"  ✗ 工作表 {sheet_name} 处理失败: {str(e)}")
+                    continue
+            
+            return result_data
+            
+        except Exception as e:
+            raise Exception(f"读取文件失败: {str(e)}")
+    
+    def export_clean_excel(self, data_dict, output_path):
+        """导出处理后的数据"""
+        try:
+            output_format = self.output_format_var.get()
+            
+            if output_format == "csv":
+                # 导出为CSV格式
+                if self.merge_sheets_var.get() and len(data_dict) > 1:
+                    # 合并所有Sheet到单一CSV
+                    combined_df = pd.DataFrame()
+                    for sheet_name, df in data_dict.items():
+                        # 添加来源工作表列
+                        df_copy = df.copy()
+                        df_copy['来源工作表'] = sheet_name
+                        combined_df = pd.concat([combined_df, df_copy], ignore_index=True)
+                    
+                    csv_path = output_path.replace('.xlsx', '.csv')
+                    combined_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                    self.process_log(f"✓ 已合并导出到: {os.path.basename(csv_path)}")
+                else:
+                    # 每个Sheet单独导出为CSV
+                    for sheet_name, df in data_dict.items():
+                        csv_path = output_path.replace('.xlsx', f'_{sheet_name}.csv')
+                        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                        self.process_log(f"✓ 导出 {sheet_name}: {os.path.basename(csv_path)}")
+            
+            else:  # xlsx格式
+                with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                    if self.merge_sheets_var.get() and len(data_dict) > 1:
+                        # 合并所有Sheet到单一工作表
+                        combined_df = pd.DataFrame()
+                        for sheet_name, df in data_dict.items():
+                            df_copy = df.copy()
+                            df_copy['来源工作表'] = sheet_name
+                            combined_df = pd.concat([combined_df, df_copy], ignore_index=True)
+                        
+                        combined_df.to_excel(writer, sheet_name='合并数据', index=False)
+                        self.process_log(f"✓ 已合并到单一工作表: 合并数据")
+                    else:
+                        # 保持原有Sheet结构
+                        for sheet_name, df in data_dict.items():
+                            # 限制工作表名称长度
+                            safe_sheet_name = sheet_name[:31] if len(sheet_name) > 31 else sheet_name
+                            df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+                            self.process_log(f"✓ 导出工作表: {safe_sheet_name}")
+            
+            return True
+            
+        except Exception as e:
+            raise Exception(f"导出失败: {str(e)}")
     
     def start_excel_processing(self):
         """开始Excel处理"""
-        messagebox.showinfo("提示", "表格处理功能正在开发中，敬请期待！")
+        # 验证输入
+        if not self.process_files:
+            messagebox.showwarning("提示", "请先选择Excel文件")
+            return
+        
+        if not self.process_output_var.get():
+            messagebox.showwarning("提示", "请先选择输出目录")
+            return
+        
+        # 禁用处理按钮
+        self.process_button.config(state="disabled")
+        self.process_log("开始执行Excel文件处理...")
+        self.process_update_status("正在处理文件...")
+        
+        def processing_thread():
+            try:
+                total_files = len(self.process_files)
+                processed_count = 0
+                
+                for file_idx, file_path in enumerate(self.process_files, 1):
+                    filename = os.path.basename(file_path)
+                    self.process_log(f"[{file_idx}/{total_files}] 处理文件: {filename}")
+                    
+                    try:
+                        # 更新树形视图状态
+                        for item in self.process_files_tree.get_children():
+                            values = list(self.process_files_tree.item(item, 'values'))
+                            if values[0] == filename:
+                                values[2] = "处理中"
+                                self.process_files_tree.item(item, values=values)
+                                break
+                        
+                        # 读取和处理文件
+                        include_hidden = self.include_hidden_var.get()
+                        data_dict = self.read_excel_with_header_detection(file_path, include_hidden)
+                        
+                        if not data_dict:
+                            raise Exception("没有有效的数据")
+                        
+                        # 生成输出文件路径
+                        base_name = os.path.splitext(filename)[0]
+                        output_format = self.output_format_var.get()
+                        output_filename = f"{base_name}_processed.{output_format}"
+                        output_path = os.path.join(self.process_output_var.get(), output_filename)
+                        
+                        # 导出处理结果
+                        self.export_clean_excel(data_dict, output_path)
+                        
+                        # 更新状态为完成
+                        for item in self.process_files_tree.get_children():
+                            values = list(self.process_files_tree.item(item, 'values'))
+                            if values[0] == filename:
+                                values[2] = "完成"
+                                self.process_files_tree.item(item, values=values)
+                                break
+                        
+                        processed_count += 1
+                        self.process_log(f"✓ 完成处理: {filename}")
+                        
+                    except Exception as e:
+                        # 更新状态为失败
+                        for item in self.process_files_tree.get_children():
+                            values = list(self.process_files_tree.item(item, 'values'))
+                            if values[0] == filename:
+                                values[2] = "失败"
+                                self.process_files_tree.item(item, values=values)
+                                break
+                        
+                        self.process_log(f"✗ 处理失败: {filename} - {str(e)}")
+                        continue
+                
+                # 处理完成
+                success_message = f"处理完成！成功处理 {processed_count}/{total_files} 个文件"
+                self.root.after(0, lambda: self.processing_complete(True, success_message))
+                
+            except Exception as e:
+                error_message = f"处理过程异常: {str(e)}"
+                self.root.after(0, lambda: self.processing_complete(False, error_message))
+        
+        threading.Thread(target=processing_thread, daemon=True).start()
+    
+    def processing_complete(self, success, message):
+        """处理完成回调"""
+        self.process_button.config(state="normal")
+        
+        if success:
+            self.process_log(f"✓ {message}")
+            self.process_update_status("处理完成")
+            messagebox.showinfo("成功", message)
+            
+            # 自动打开输出目录
+            if os.path.exists(self.process_output_var.get()):
+                if open_and_highlight_file(self.process_output_var.get()):
+                    self.process_log("✓ 已自动打开输出目录")
+                else:
+                    self.process_log("✗ 打开输出目录失败，请手动查看")
+        else:
+            self.process_log(f"✗ {message}")
+            self.process_update_status("处理失败")
+            messagebox.showerror("错误", message)
+    
+    def preview_data(self):
+        """预览数据（预留功能）"""
+        messagebox.showinfo("预览功能", "数据预览功能正在开发中，敬请期待！")
     
     def reset_process_settings(self):
         """重置处理设置"""
-        if show_confirm_dialog("确认", "确定要重置所有设置吗？"):
-            self.process_files.clear()
-            for item in self.process_files_tree.get_children():
-                self.process_files_tree.delete(item)
-            self.process_output_var.set("")
-            self.header_detection_var.set("auto")
-            self.start_row_var.set("1")
-            self.include_hidden_var.set(False)
-            self.merge_sheets_var.set(True)
-            self.output_format_var.set("xlsx")
-            self.remove_duplicates_var.set(False)
-            self.clean_data_var.set(True)
-            self.optimize_memory_var.set(False)
-            self.process_log("✓ 已重置所有设置")
+        result = show_confirm_dialog("确认重置", "确定要重置所有处理设置吗？")
+        if not result:
+            return
+        
+        # 重置所有变量
+        self.process_files.clear()
+        self.header_detection_var.set("auto")
+        self.start_row_var.set("1")
+        self.include_hidden_var.set(False)
+        self.merge_sheets_var.set(True)
+        self.output_format_var.set("xlsx")
+        self.remove_duplicates_var.set(False)
+        self.clean_data_var.set(True)
+        self.optimize_memory_var.set(False)
+        self.process_output_var.set("")
+        
+        # 清空控件
+        self.process_files_tree.delete(*self.process_files_tree.get_children())
+        self.process_log_text.delete(1.0, tk.END)
+        
+        # 重新初始化日志
+        self.process_log("Excel表格处理工具已重置")
+        self.process_log("支持智能表头检测、多Sheet处理、数据清洗和格式转换")
+        self.process_update_status("就绪 - 已重置所有设置")
     
-    def preview_data(self):
-        """预览数据"""
-        messagebox.showinfo("提示", "数据预览功能正在开发中，敬请期待！")
+    # ==================== 数据分析功能方法 ====================
     
-    # 数据分析标签页的方法
     def analysis_log(self, message):
         """添加分析日志消息"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -2950,83 +3005,631 @@ class ImprovedExcelCompareGUI:
         self.analysis_log_text.see(tk.END)
         self.root.update_idletasks()
     
+    def analysis_update_status(self, message):
+        """更新分析状态栏"""
+        self.analysis_status_var.set(message)
+        self.root.update_idletasks()
+    
     def select_analysis_file(self):
-        """选择分析文件"""
+        """选择分析文件（支持多文件选择）"""
         file_paths = filedialog.askopenfilenames(
-            title="选择Excel文件",
-            filetypes=[("Excel文件", "*.xlsx *.xls"), ("所有文件", "*.*")]
+            title="选择Excel文件进行分析（可多选）",
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
         )
         
-        if file_paths:
-            for file_path in file_paths:
-                if file_path not in self.analysis_files:
+        for file_path in file_paths:
+            if file_path not in self.analysis_files:
+                try:
+                    # 验证文件是否可以读取
+                    test_data = pd.read_excel(file_path)
+                    
+                    # 添加到文件列表
                     self.analysis_files.append(file_path)
-                    filename = os.path.basename(file_path)
-                    status = "已添加"
-                    self.analysis_files_tree.insert('', 'end', values=(filename, status))
+                    
+                    # 添加到树形视图
+                    self.analysis_files_tree.insert('', tk.END, values=(os.path.basename(file_path), "已加载"))
+                    
+                    self.analysis_log(f"✓ 添加文件: {os.path.basename(file_path)}")
+                    self.analysis_log(f"  数据维度: {test_data.shape[0]}行 x {test_data.shape[1]}列")
+                    
+                except Exception as e:
+                    self.analysis_log(f"✗ 文件加载失败: {os.path.basename(file_path)} - {str(e)}")
+                    continue
+        
+        # 如果有文件被添加，合并数据并更新界面
+        if self.analysis_files:
+            self._merge_analysis_data()
+            self.analysis_update_status(f"已加载 {len(self.analysis_files)} 个文件")
+    
+    def _merge_analysis_data(self):
+        """合并多个Excel文件的数据"""
+        try:
+            all_dataframes = []
             
-            self.analysis_log(f"✓ 已添加 {len(file_paths)} 个分析文件")
+            for file_path in self.analysis_files:
+                df = pd.read_excel(file_path)
+                # 添加文件来源列
+                df['数据来源文件'] = os.path.basename(file_path)
+                all_dataframes.append(df)
+            
+            if all_dataframes:
+                # 合并所有数据框
+                self.analysis_data = pd.concat(all_dataframes, ignore_index=True, sort=False)
+                self.analysis_columns = list(self.analysis_data.columns)
+                
+                self.analysis_log(f"✓ 数据合并完成，总计: {self.analysis_data.shape[0]}行 x {self.analysis_data.shape[1]}列")
+                
+                # 更新敏感列列表
+                self.sensitive_listbox.delete(0, tk.END)
+                for col in self.analysis_columns:
+                    self.sensitive_listbox.insert(tk.END, col)
+                
+                # 更新敏感行列表（只显示前100行，避免界面卡顿）
+                self.sensitive_row_listbox.delete(0, tk.END)
+                max_rows = min(100, len(self.analysis_data))
+                for i in range(max_rows):
+                    # 显示行号和第一列的值作为标识
+                    first_col_value = str(self.analysis_data.iloc[i, 0]) if len(self.analysis_data.columns) > 0 else ""
+                    row_label = f"第{i+1}行: {first_col_value[:20]}{'...' if len(first_col_value) > 20 else ''}"
+                    self.sensitive_row_listbox.insert(tk.END, row_label)
+                
+                if len(self.analysis_data) > 100:
+                    self.sensitive_row_listbox.insert(tk.END, f"... 还有 {len(self.analysis_data) - 100} 行数据")
+                
+                # 更新对话区域
+                self.dialog_text.config(state=tk.NORMAL)
+                self.dialog_text.insert(tk.END, f"系统: 已合并 {len(self.analysis_files)} 个Excel文件，总计 {self.analysis_data.shape[0]} 行 {self.analysis_data.shape[1]} 列数据。您可以开始提问了！\n\n")
+                self.dialog_text.config(state=tk.DISABLED)
+                self.dialog_text.see(tk.END)
+                
+        except Exception as e:
+            self.analysis_log(f"✗ 数据合并失败: {str(e)}")
+            messagebox.showerror("错误", f"数据合并失败: {str(e)}")
     
     def remove_analysis_file(self):
         """移除选中的分析文件"""
         selected_items = self.analysis_files_tree.selection()
         if not selected_items:
-            messagebox.showwarning("警告", "请先选择要移除的文件")
+            messagebox.showwarning("提示", "请先选择要移除的文件")
             return
         
         for item in selected_items:
-            filename = self.analysis_files_tree.item(item, 'values')[0]
-            for file_path in self.analysis_files[:]:
-                if os.path.basename(file_path) == filename:
-                    self.analysis_files.remove(file_path)
-                    break
-            self.analysis_files_tree.delete(item)
+            # 获取文件名
+            values = self.analysis_files_tree.item(item, 'values')
+            if values:
+                filename = values[0]
+                # 从列表中移除
+                self.analysis_files = [f for f in self.analysis_files if os.path.basename(f) != filename]
+                # 从树形视图中移除
+                self.analysis_files_tree.delete(item)
+                self.analysis_log(f"✓ 移除文件: {filename}")
         
-        self.analysis_log(f"✓ 已移除 {len(selected_items)} 个文件")
+        # 重新合并数据
+        if self.analysis_files:
+            self._merge_analysis_data()
+            self.analysis_update_status(f"当前有 {len(self.analysis_files)} 个文件")
+        else:
+            # 清空数据
+            self.analysis_data = None
+            self.analysis_columns = []
+            self.sensitive_listbox.delete(0, tk.END)
+            self.sensitive_row_listbox.delete(0, tk.END)
+            
+            # 更新对话区域
+            self.dialog_text.config(state=tk.NORMAL)
+            self.dialog_text.insert(tk.END, "系统: 所有文件已移除，请重新选择Excel文件。\n\n")
+            self.dialog_text.config(state=tk.DISABLED)
+            self.dialog_text.see(tk.END)
+            
+            self.analysis_update_status("无文件")
     
     def clear_analysis_files(self):
-        """清空分析文件列表"""
+        """清空所有分析文件"""
         if self.analysis_files:
-            if show_confirm_dialog("确认", "确定要清空所有文件吗？"):
+            result = show_confirm_dialog("确认清空", "确定要清空所有Excel文件吗？")
+            if result:
                 self.analysis_files.clear()
-                for item in self.analysis_files_tree.get_children():
-                    self.analysis_files_tree.delete(item)
-                self.analysis_log("✓ 已清空文件列表")
-    
-    def select_analysis_output(self):
-        """选择分析输出目录"""
-        directory = filedialog.askdirectory(title="选择输出目录")
-        if directory:
-            self.analysis_output_var.set(directory)
-            self.analysis_log(f"✓ 输出目录设置为: {directory}")
+                self.analysis_files_tree.delete(*self.analysis_files_tree.get_children())
+                
+                # 清空数据
+                self.analysis_data = None
+                self.analysis_columns = []
+                self.sensitive_listbox.delete(0, tk.END)
+                self.sensitive_row_listbox.delete(0, tk.END)
+                
+                # 更新对话区域
+                self.dialog_text.config(state=tk.NORMAL)
+                self.dialog_text.insert(tk.END, "系统: 所有文件已清空，请重新选择Excel文件。\n\n")
+                self.dialog_text.config(state=tk.DISABLED)
+                self.dialog_text.see(tk.END)
+                
+                self.analysis_log("✓ 已清空所有Excel文件")
+                self.analysis_update_status("文件列表已清空")
     
     def send_dialog_message(self, event=None):
         """发送对话消息"""
-        messagebox.showinfo("提示", "对话功能正在开发中，敬请期待！")
+        message = self.dialog_input_var.get().strip()
+        if not message:
+            return
+        
+        # 清空输入框
+        self.dialog_input_var.set("")
+        
+        # 显示用户消息
+        self.dialog_text.config(state=tk.NORMAL)
+        self.dialog_text.insert(tk.END, f"用户: {message}\n")
+        self.dialog_text.config(state=tk.DISABLED)
+        self.dialog_text.see(tk.END)
+        
+        # 检查是否有数据
+        if self.analysis_data is None:
+            self.dialog_text.config(state=tk.NORMAL)
+            self.dialog_text.insert(tk.END, "DeepSeek助手: 请先上传Excel文件，然后我们可以开始分析。\n\n")
+            self.dialog_text.config(state=tk.DISABLED)
+            self.dialog_text.see(tk.END)
+            return
+        
+        # 检查API配置
+        api_key = ENV_CONFIG['api_key']
+        if not api_key:
+            self.dialog_text.config(state=tk.NORMAL)
+            self.dialog_text.insert(tk.END, "DeepSeek助手: 请先在.env文件中配置API Key才能进行智能分析。\n\n")
+            self.dialog_text.config(state=tk.DISABLED)
+            self.dialog_text.see(tk.END)
+            return
+        
+        # 在后台线程中调用API
+        def api_call():
+            try:
+                # 准备数据摘要
+                data_summary = self.prepare_data_summary()
+                
+                # 构建对话历史
+                messages = [
+                    {"role": "system", "content": f"你是一个专业的数据分析师。当前分析的数据概况：{data_summary}"},
+                ]
+                
+                # 添加历史对话
+                for hist in self.dialog_history[-5:]:  # 只保留最近5轮对话
+                    messages.append(hist)
+                
+                # 添加当前用户消息
+                messages.append({"role": "user", "content": message})
+                
+                # 调用API
+                response = self.call_deepseek_api(messages)
+                
+                # 更新界面
+                self.root.after(0, lambda: self.update_dialog_response(message, response))
+                
+            except Exception as e:
+                error_msg = str(e)
+                self.root.after(0, lambda: self.update_dialog_error(error_msg))
+        
+        threading.Thread(target=api_call, daemon=True).start()
+    
+    def prepare_data_summary(self):
+        """准备数据摘要"""
+        if self.analysis_data is None:
+            return "无数据"
+        
+        # 获取敏感列
+        selected_col_indices = self.sensitive_listbox.curselection()
+        sensitive_columns = [self.analysis_columns[i] for i in selected_col_indices]
+        
+        # 获取敏感行
+        selected_row_indices = self.sensitive_row_listbox.curselection()
+        
+        # 创建脱敏数据用于分析
+        clean_data = self.analysis_data.copy()
+        for col in sensitive_columns:
+            clean_data[col] = f"[脱敏_{col}]"
+        
+        summary = {
+            "数据维度": f"{clean_data.shape[0]}行 x {clean_data.shape[1]}列",
+            "列名": list(clean_data.columns),
+            "脱敏列": sensitive_columns,
+            "脱敏行数": len(selected_row_indices),
+            "数值列统计": clean_data.describe().to_dict() if len(clean_data.select_dtypes(include=[np.number]).columns) > 0 else "无数值列",
+            "数据样本": clean_data.head(3).to_dict() if len(clean_data) > 0 else "无数据"
+        }
+        
+        return str(summary)
+    
+    def call_deepseek_api(self, messages):
+        """调用DeepSeek API - 使用OpenAI客户端"""
+        if not OPENAI_AVAILABLE:
+            raise Exception("OpenAI库未安装，无法使用DeepSeek API。请运行: pip install openai")
+        
+        api_key = ENV_CONFIG['api_key']
+        base_url = ENV_CONFIG['base_url']
+        
+        try:
+            # 创建OpenAI客户端，指向DeepSeek API
+            client = OpenAI(
+                api_key=api_key,
+                base_url=base_url
+            )
+            
+            # 调用API
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=messages,
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            if "OpenAI" in str(e):
+                raise Exception(f"DeepSeek API调用失败: {str(e)}")
+            else:
+                raise Exception(f"API调用错误: {str(e)}")
+    
+    def update_dialog_response(self, user_message, ai_response):
+        """更新对话响应"""
+        # 保存到历史
+        self.dialog_history.append({"role": "user", "content": user_message})
+        self.dialog_history.append({"role": "assistant", "content": ai_response})
+        
+        # 显示AI响应
+        self.dialog_text.config(state=tk.NORMAL)
+        self.dialog_text.insert(tk.END, f"DeepSeek助手: {ai_response}\n\n")
+        self.dialog_text.config(state=tk.DISABLED)
+        self.dialog_text.see(tk.END)
+    
+    def update_dialog_error(self, error_msg):
+        """更新对话错误"""
+        self.dialog_text.config(state=tk.NORMAL)
+        self.dialog_text.insert(tk.END, f"系统错误: {error_msg}\n\n")
+        self.dialog_text.config(state=tk.DISABLED)
+        self.dialog_text.see(tk.END)
     
     def open_advanced_chat(self):
         """打开高级对话窗口"""
-        messagebox.showinfo("提示", "高级对话功能正在开发中，敬请期待！")
+        # 检查是否有数据
+        if self.analysis_data is None:
+            messagebox.showwarning("提示", "请先上传Excel文件")
+            return
+        
+        # 检查API配置
+        api_key = ENV_CONFIG['api_key']
+        if not api_key:
+            messagebox.showwarning("提示", "请先在.env文件中配置API Key")
+            return
+        
+        # 显示模型选择窗口
+        model_selector = ModelSelectionWindow(self.root, api_key)
+        model_config = model_selector.show()
+        
+        if model_config is None:
+            return  # 用户取消了选择
+        
+        # 准备脱敏数据
+        selected_col_indices = self.sensitive_listbox.curselection()
+        sensitive_columns = [self.analysis_columns[i] for i in selected_col_indices]
+        
+        selected_row_indices = self.sensitive_row_listbox.curselection()
+        
+        # 创建脱敏数据
+        clean_data = self.analysis_data.copy()
+        for col in sensitive_columns:
+            clean_data[col] = f"[脱敏_{col}]"
+        
+        # 行脱敏
+        if selected_row_indices:
+            for row_idx in selected_row_indices:
+                for col in clean_data.columns:
+                    if col not in sensitive_columns:
+                        clean_data.iloc[row_idx, clean_data.columns.get_loc(col)] = f"[脱敏_行{row_idx+1}]"
+        
+        # 打开对话窗口
+        chat_window = ChatWindow(self.root, clean_data, api_key, model_config)
+        chat_history = chat_window.show()
+        
+        # 将对话历史合并到主对话历史中
+        if chat_history:
+            self.dialog_history.extend(chat_history)
+            
+            # 在快速对话区域显示摘要
+            self.dialog_text.config(state=tk.NORMAL)
+            self.dialog_text.insert(tk.END, f"\n=== 高级对话完成 ===\n")
+            self.dialog_text.insert(tk.END, f"模型: {model_config['model']}\n")
+            self.dialog_text.insert(tk.END, f"对话轮数: {len(chat_history) // 2}\n")
+            self.dialog_text.insert(tk.END, f"已合并到分析历史中\n\n")
+            self.dialog_text.config(state=tk.DISABLED)
+            self.dialog_text.see(tk.END)
+            
+            self.analysis_log(f"✓ 高级对话完成，模型: {model_config['model']}，对话轮数: {len(chat_history) // 2}")
+    
+    def select_analysis_output(self):
+        """选择分析输出目录"""
+        directory = filedialog.askdirectory(title="选择分析结果输出目录")
+        if directory:
+            self.analysis_output_var.set(directory)
+            self.analysis_log(f"✓ 输出目录: {directory}")
+            self.analysis_update_status("输出目录已选择")
     
     def start_analysis(self):
-        """开始分析"""
-        messagebox.showinfo("提示", "数据分析功能正在开发中，敬请期待！")
+        """开始数据分析"""
+        # 验证输入
+        if self.analysis_data is None:
+            messagebox.showwarning("提示", "请先选择Excel文件")
+            return
+        
+        if not self.analysis_output_var.get():
+            messagebox.showwarning("提示", "请先选择输出目录")
+            return
+        
+        # 禁用分析按钮
+        self.analysis_button.config(state="disabled")
+        self.analysis_log("开始执行数据分析...")
+        self.analysis_update_status("正在分析数据...")
+        
+        def analysis_thread():
+            try:
+                # 获取敏感列
+                selected_col_indices = self.sensitive_listbox.curselection()
+                sensitive_columns = [self.analysis_columns[i] for i in selected_col_indices]
+                
+                # 获取敏感行
+                selected_row_indices = self.sensitive_row_listbox.curselection()
+                
+                # 数据脱敏
+                clean_data = self.analysis_data.copy()
+                for col in sensitive_columns:
+                    clean_data[col] = f"[脱敏_{col}]"
+                
+                # 行脱敏（如果选择了敏感行）
+                if selected_row_indices:
+                    for row_idx in selected_row_indices:
+                        for col in clean_data.columns:
+                            if col not in sensitive_columns:  # 避免重复脱敏
+                                clean_data.iloc[row_idx, clean_data.columns.get_loc(col)] = f"[脱敏_行{row_idx+1}]"
+                
+                self.analysis_log(f"✓ 数据脱敏完成，脱敏列: {sensitive_columns}，脱敏行: {len(selected_row_indices)}行")
+                
+                # 生成图表
+                chart_path = self.generate_chart(clean_data, sensitive_columns)
+                
+                # 整合对话历史作为AI分析
+                dialog_summary = self.generate_dialog_summary()
+                
+                # 生成最终报告
+                report_path = self.generate_final_report(clean_data, chart_path, dialog_summary, sensitive_columns, selected_row_indices)
+                
+                self.root.after(0, lambda: self.analysis_complete(True, report_path))
+                
+            except Exception as e:
+                self.root.after(0, lambda: self.analysis_complete(False, str(e)))
+        
+        threading.Thread(target=analysis_thread, daemon=True).start()
+    
+    def generate_dialog_summary(self):
+        """生成对话摘要"""
+        if not self.dialog_history:
+            return "未进行DeepSeek对话分析"
+        
+        summary = "=== DeepSeek对话分析完整记录 ===\n\n"
+        summary += f"总对话轮数: {len(self.dialog_history) // 2}\n"
+        summary += f"分析时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        
+        # 整理对话内容
+        current_round = 1
+        for i in range(0, len(self.dialog_history), 2):
+            if i + 1 < len(self.dialog_history):
+                user_msg = self.dialog_history[i]
+                assistant_msg = self.dialog_history[i + 1]
+                
+                summary += f"--- 第{current_round}轮对话 ---\n"
+                summary += f"用户: {user_msg['content']}\n\n"
+                summary += f"DeepSeek助手: {assistant_msg['content']}\n\n"
+                current_round += 1
+        
+        summary += "=== 对话分析记录结束 ==="
+        return summary
+    
+    def generate_chart(self, data, sensitive_columns):
+        """生成数据图表"""
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use('Agg')  # 使用非交互式后端
+            
+            # 设置中文字体
+            plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 选择数值列进行分析
+            numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+            # 排除敏感列
+            numeric_columns = [col for col in numeric_columns if col not in sensitive_columns]
+            
+            if not numeric_columns:
+                self.analysis_log("⚠ 没有可用的数值列进行图表生成")
+                return None
+            
+            chart_type = self.chart_type_var.get()
+            
+            plt.figure(figsize=(10, 6))
+            
+            if chart_type == "柱状图":
+                if len(numeric_columns) >= 1:
+                    col = numeric_columns[0]
+                    data[col].value_counts().head(10).plot(kind='bar')
+                    plt.title(f'{col} - 柱状图')
+                    plt.ylabel('频次')
+            
+            elif chart_type == "折线图":
+                if len(numeric_columns) >= 1:
+                    col = numeric_columns[0]
+                    data[col].plot(kind='line')
+                    plt.title(f'{col} - 折线图')
+                    plt.ylabel(col)
+            
+            elif chart_type == "饼图":
+                if len(numeric_columns) >= 1:
+                    col = numeric_columns[0]
+                    data[col].value_counts().head(5).plot(kind='pie', autopct='%1.1f%%')
+                    plt.title(f'{col} - 饼图')
+            
+            elif chart_type == "散点图":
+                if len(numeric_columns) >= 2:
+                    plt.scatter(data[numeric_columns[0]], data[numeric_columns[1]])
+                    plt.xlabel(numeric_columns[0])
+                    plt.ylabel(numeric_columns[1])
+                    plt.title(f'{numeric_columns[0]} vs {numeric_columns[1]} - 散点图')
+            
+            elif chart_type == "箱线图":
+                if len(numeric_columns) >= 1:
+                    data[numeric_columns[:3]].boxplot()
+                    plt.title('数值列箱线图')
+            
+            plt.tight_layout()
+            
+            # 保存图表
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            chart_filename = f"数据分析图表_{timestamp}.png"
+            chart_path = os.path.join(self.analysis_output_var.get(), chart_filename)
+            plt.savefig(chart_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self.analysis_log(f"✓ 图表生成完成: {chart_filename}")
+            return chart_path
+            
+        except Exception as e:
+            self.analysis_log(f"✗ 图表生成失败: {str(e)}")
+            return None
+    
+
+    
+    def generate_final_report(self, data, chart_path, dialog_summary, sensitive_columns, sensitive_rows):
+        """生成最终分析报告"""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            report_filename = f"数据分析报告_{timestamp}.xlsx"
+            report_path = os.path.join(self.analysis_output_var.get(), report_filename)
+            
+            with pd.ExcelWriter(report_path, engine='openpyxl') as writer:
+                # 写入脱敏数据
+                data.to_excel(writer, sheet_name='脱敏数据', index=False)
+                
+                # 写入统计摘要
+                if len(data.select_dtypes(include=[np.number]).columns) > 0:
+                    data.describe().to_excel(writer, sheet_name='统计摘要')
+                
+                # 写入对话分析报告
+                if dialog_summary:
+                    report_df = pd.DataFrame({'DeepSeek对话分析': [dialog_summary]})
+                    report_df.to_excel(writer, sheet_name='对话分析报告', index=False)
+                
+                # 写入元数据
+                metadata = {
+                    '分析时间': [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+                    '数据维度': [f"{data.shape[0]}行 x {data.shape[1]}列"],
+                    '脱敏列': [', '.join(sensitive_columns) if sensitive_columns else '无'],
+                    '脱敏行数': [len(sensitive_rows)],
+                    '图表文件': [os.path.basename(chart_path) if chart_path else '无'],
+                    '对话轮数': [len(self.dialog_history) // 2]
+                }
+                metadata_df = pd.DataFrame(metadata)
+                metadata_df.to_excel(writer, sheet_name='分析元数据', index=False)
+            
+            self.analysis_log(f"✓ 分析报告生成完成: {report_filename}")
+            return report_path
+            
+        except Exception as e:
+            self.analysis_log(f"✗ 报告生成失败: {str(e)}")
+            return None
+    
+    def analysis_complete(self, success, result):
+        """分析完成回调"""
+        self.analysis_button.config(state="normal")
+        
+        if success:
+            self.analysis_log("✓ 数据分析完成！")
+            self.analysis_update_status("分析完成")
+            messagebox.showinfo("成功", f"数据分析完成！\n报告已保存至: {result}")
+            
+            # 自动打开输出目录
+            if os.path.exists(result):
+                if open_and_highlight_file(result):
+                    self.analysis_log("✓ 已自动打开分析报告保存目录")
+                else:
+                    self.analysis_log("✗ 打开目录失败，请手动查看")
+        else:
+            self.analysis_log(f"✗ 分析失败: {result}")
+            self.analysis_update_status("分析失败")
+            messagebox.showerror("错误", f"数据分析失败: {result}")
     
     def reset_analysis(self):
         """重置分析设置"""
-        if show_confirm_dialog("确认", "确定要重置所有设置吗？"):
-            self.analysis_files.clear()
-            for item in self.analysis_files_tree.get_children():
-                self.analysis_files_tree.delete(item)
-            self.analysis_output_var.set("")
-            self.sensitive_listbox.selection_clear(0, tk.END)
-            self.sensitive_row_listbox.selection_clear(0, tk.END)
-            self.row_select_mode.set("none")
-            self.dialog_input_var.set("")
-            self.analysis_log("✓ 已重置所有设置")
+        result = show_confirm_dialog("确认重置", "确定要重置所有分析设置吗？")
+        if not result:
+            return
+        
+        # 重置所有变量
+        self.analysis_files.clear()
+        self.base_url_var.set("https://api.deepseek.com")
+        self.analysis_output_var.set("")
+        self.dialog_input_var.set("")
+        self.row_select_mode.set("none")
+        
+        # 清空控件
+        self.analysis_files_tree.delete(*self.analysis_files_tree.get_children())
+        self.sensitive_listbox.delete(0, tk.END)
+        self.sensitive_row_listbox.delete(0, tk.END)
+        self.analysis_log_text.delete(1.0, tk.END)
+        
+        # 重置对话
+        self.dialog_text.config(state=tk.NORMAL)
+        self.dialog_text.delete(1.0, tk.END)
+        self.dialog_text.insert(tk.END, "DeepSeek助手: 您好！我是您的数据分析助手。请先上传Excel文件，然后我们可以开始分析对话。\n\n")
+        self.dialog_text.config(state=tk.DISABLED)
+        
+        # 重置数据
+        self.analysis_data = None
+        self.analysis_columns = []
+        self.dialog_history = []
+        
+        # 重新初始化日志
+        self.analysis_log("数据分析工具已重置")
+        self.analysis_log("支持多文件Excel数据脱敏、DeepSeek对话分析和综合报告生成")
+        self.analysis_update_status("就绪 - 已重置所有设置")
+
+
+def main():
+    """主函数"""
+    root = tk.Tk()
+    app = ImprovedExcelCompareGUI(root)
+    
+    # 设置窗口图标和其他属性
+    try:
+        root.iconname("Excel Compare")
+    except:
+        pass
+    
+    # 添加窗口大小变化的回调，用于优化自适应显示
+    def on_window_resize(event):
+        """窗口大小变化时的回调函数"""
+        if event.widget == root:
+            # 当窗口大小变化时，确保界面元素正确更新
+            root.update_idletasks()
+    
+    # 绑定窗口大小变化事件
+    root.bind('<Configure>', on_window_resize)
+    
+    # 居中显示窗口
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f"{width}x{height}+{x}+{y}")
+    
+    root.mainloop()
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ImprovedExcelCompareGUI(root)
-    root.mainloop()
+    main() 
